@@ -154,7 +154,8 @@ class Game(object):
     def add_callback(self, name, callback, players):
         for p in players:
             self.callbacks[p.id] = (name, callback)
-        self.state = 'callback'
+        if players:
+            self.state = 'callback'
 
     def queue_callback(self, name, callback, players):
         if not self.callbacks:

@@ -55,6 +55,8 @@ class Card(object):
             type = "Treasure"
         elif self.is_victory():
             type = "Victory"
+        elif self.is_action():
+            type = "Action"
 
         return {
             'name': self.__class__.__name__,
@@ -279,12 +281,6 @@ class Deck(object):
         self.discard.append(self.library.pop())
         return True
 
-    def trash_top(self):
-        if self.peek() is None:
-            return False
-        self.game.trash.append(self.library.pop())
-        return True
-
     def discard_to_library(self, card):
         c = self.find_card_in_discard(card)
         if not c:
@@ -348,12 +344,6 @@ class Deck(object):
                 self.hand.append(self.library.pop())
                 continue
             break
-
-    def has_reaction(self):
-        for card in self.hand:
-            if card.is_reaction():
-                return True
-        return False
 
     def value(self):
         return sum([x.value() for x in self.hand])

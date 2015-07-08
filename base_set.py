@@ -18,6 +18,8 @@ class Cellar(Action):
 
         if 'cards' not in payload:
             return {'error': 'No cards discarded'}
+        if not isinstance(payload['cards'], list):
+            return {'error': 'Cards must be list.'}
         for card in payload['cards']:
             if not isinstance(card, dict):
                 return {'error': 'Invalid card'}
@@ -132,9 +134,9 @@ class Workshop(Action):
         return ["Gain a card costing up to $4"]
 
     def play(self, payload):
-        if not payload.get('card'):
+        if not payload.get('gain'):
             return {'error': 'No card gained'}
-        card = payload['card']
+        card = payload['gain']
         if not isinstance(card, dict):
             return {'error': 'Invalid card'}
         c = self.game.card_from_name(card.get('name'))
