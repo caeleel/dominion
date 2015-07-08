@@ -27,7 +27,7 @@ class Cellar(Action):
                 return {'error': '{0} not in hand'.format(card.get('name'))}
 
         for card in payload['cards']:
-            deck.discard(card)
+            deck.discard_hand(card)
             deck.draw()
 
         return {}
@@ -56,7 +56,7 @@ class Chapel(Action):
                 return {'error': '{0} not in hand'.format(card.get('name'))}
 
         for card in payload['cards']:
-            deck.trash(card)
+            deck.trash_hand(card)
 
         return {}
 
@@ -162,10 +162,6 @@ class Bureaucrat(Action):
             "with no Victory cards)."
         ]
 
-    def see_revealed(self, pid, payload):
-        self.revealed['clear'] = True
-        return self.revealed
-
     def choose_victory(self, pid, payload):
         card = payload.get('card')
         if not isinstance(card, dict):
@@ -175,12 +171,7 @@ class Bureaucrat(Action):
         c = deck.hand_to_library(card)
         if c is None:
             return {'error': 'Card {0} not in hand'.format(name)}
-        self.revealed[pid] = c.dict()
-        if len(self.revealed) == self.num_targets:
-            self.game.add_callback('see_revealed', self.see_revealed, self.game.players)
-            return {}
-        else:
-            return {'clear': True}
+        return {'clear': True}
 
     def preplay(self, payload):
         self.game.gain(self.game.active_deck, 'Silver')
@@ -188,7 +179,6 @@ class Bureaucrat(Action):
         deck.discard_to_library({'name': 'Silver'})
 
     def attack(self, players):
-        self.revealed = {}
         callback_targets = []
 
         for player in players:
@@ -197,20 +187,18 @@ class Bureaucrat(Action):
             for c in deck.hand:
                 if c.is_victory():
                     victory.add(c)
-            if len(victory) == 1:
-                c = victory.pop()
-                deck.hand_to_library(c)
-                self.revealed[player.id] = c.dict()
-            elif len(victory) == 0:
-                self.revealed[player.id] = {'hand': deck.dict()['hand']}
+            if len(victory) == 0:
+                self.game.log({
+                    'pid': player.id,
+                    'action': 'show_hand',
+                    'hand': deck.dict()['hand']
+                })
             else:
                 callback_targets.append(player)
 
         if callback_targets:
             self.num_targets = len(callback_targets)
             self.game.add_callback('choose_victory', self.choose_victory, callback_targets)
-        else:
-            self.game.add_callbacks('see_revealed', self.see_revealed, players)
 
 class Feast(Action):
     def cost(self):
@@ -355,7 +343,7 @@ class Spy(Attack):
         self.game.add_actions(1)
 
     def choose_discard(self, pid, payload):
-        if pid != self.game.active_player.pid:
+        if pid != self.game.active_player.id:
             return {'error': 'Invalid pid'}
         if 'discard' not in payload or not isinstance(payload['discard'], list):
             return {'error': 'Parameter discard must be a list of pids'}
@@ -367,24 +355,22 @@ class Spy(Attack):
         return {'clear': True}
 
     def spy_cards(self, pid, payload):
-        result = {}
-        for k, v in self.revealed:
-            result[k] = v.dict()
-        if pid == self.game.active_player.pid:
-            self.game.add_callback(
-                'choose_discard',
-                self.choose_discard,
-                [self.game.active_player]
-            )
-        else:
-            result['clear'] = True
-        return result
+        if pid != self.game.active_player.id:
+            return {'error': 'Invalid pid'}
+
+        self.game.add_callback(
+            'choose_discard',
+            self.choose_discard,
+            [self.game.active_player]
+        )
+        return {'revealed': self.revealed}
 
     def attack(self, players):
+        players.append(self.game.active_player)
         self.revealed = {}
-        for player in self.game.players:
-            self.revealed[player.pid] = player.deck.peek()
-        self.game.add_callback('spy_cards', self.spy_cards, self.game.players)
+        for player in players:
+            self.revealed[player.id] = player.deck.peek().dict()
+        self.game.add_callback('spy_cards', self.spy_cards, [self.game.active_player])
 
 class Thief(Attack):
     def cost(self):
@@ -399,7 +385,7 @@ class Thief(Attack):
         ]
 
     def steal_cards(self, pid, payload):
-        if pid != self.game.active_player.pid:
+        if pid != self.game.active_player.id:
             return {'error': 'You are not the active player.'}
         if 'to_trash' not in payload:
             return {'error': 'Param to_trash is required.'}
@@ -435,28 +421,26 @@ class Thief(Attack):
         return {'clear': True}
 
     def show_thieved(self, pid, payload):
+        if pid != self.game.active_player.id:
+            return {'error': 'Invalid pid'}
         revealed = {}
         for k, v in self.revealed:
             revealed[k] = [x.dict() for x in v]
         result = {'revealed': revealed}
-        if pid == self.game.active_player.pid:
-            self.game.add_callback('steal_cards', self.steal_cards, [self.game.active_player])
-        else:
-            result['clear'] = True
+        self.game.add_callback('steal_cards', self.steal_cards, [self.game.active_player])
         return result
 
-    def attack(self):
+    def attack(self, players):
         self.revealed = defaultdict(list)
-        for player in self.game.opponents():
+        for player in players:
             deck = player.deck
-            pid = player.pid
+            pid = player.id
             for i in range(2):
                 c = deck.peek()
                 if c is not None:
                     self.revealed[pid].append(c)
                     deck.library.pop()
         self.game.add_callback('show_thieved', self.show_thieved, [self.game.active_player])
-        self.game.queue_callback('show_thieved', self.show_thieved, self.game.opponents())
 
 class ThroneRoom(Action):
     def cost(self):
@@ -466,7 +450,7 @@ class ThroneRoom(Action):
         return ["Choose an Action card in your hand. Play it twice."]
 
     def play_next(self, pid, payload):
-        if pid != self.game.active_player.pid:
+        if pid != self.game.active_player.id:
             return {'error': 'Invalid player id'}
         result = self.c1.play(payload)
         if 'error' not in result:
@@ -691,15 +675,9 @@ class Adventurer(Action):
             "revealed cards."
         ]
 
-    def show_revealed(self, pid, payload):
-        return {
-            'revealed': self.revealed,
-            'clear': True,
-        }
-
     def play(self):
         deck = self.game.active_deck
-        self.revealed = []
+        revealed = []
         discard = []
         num_treasures = 0
 
@@ -712,8 +690,7 @@ class Adventurer(Action):
                 num_treasures += 1
             else:
                 discard.append(deck.library.pop())
-            self.revealed.append(c.dict())
+            revealed.append(c.dict())
 
         deck.discard += discard
-        self.game.add_callback('show_revealed', self.show_revealed, self.game.players)
-        return {}
+        return {'revealed': revealed}

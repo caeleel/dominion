@@ -20,7 +20,7 @@ def create():
     print 'created game {0} with start_key {1}'.format(gid, start_key)
 
 def join(game=None):
-    global gid, uuid, pid
+    global gid, uuid, pid, start_key
     if game is None:
         game = gid
     else:
@@ -30,6 +30,8 @@ def join(game=None):
     uuid = j['uuid']
     pid = j['id']
     print 'joined as player {0}'.format(pid)
+    if not start_key:
+        poll()
 
 def start():
     global gid, start_key
@@ -40,29 +42,41 @@ def start():
     else:
         print resp.json()
 
-def print_state():
+def print_discard():
     global curr_state
+
+    if not curr_state:
+        return
+
+    print 'Discard'
+    print '-------'
+    print ', '.join([x['name'] for x in curr_state['deck']['discard']])
+    print 'Library size: {0}'.format(curr_state['deck']['library_size'])
+
+def print_state():
+    global curr_state, pid
 
     if not curr_state:
         return
 
     j = curr_state
 
-    if j['state'] == 'action':
-        if j['actions'] <= 0:
+    if j['turn'] == pid:
+        if j['state'] == 'action':
+            if j['actions'] <= 0:
+                next()
+                return
+            found = False
+            for card in j['deck']['hand']:
+                if 'Action' in card['type']:
+                    found = True
+                    break
+            if not found:
+                next()
+                return
+        elif j['state'] == 'buy' and j['buys'] <= 0:
             next()
             return
-        found = False
-        for card in j['deck']['hand']:
-            if 'Action' in card['type']:
-                found = True
-                break
-        if not found:
-            next()
-            return
-    elif j['state'] == 'buy' and j['buys'] <= 0:
-        next()
-        return
 
     print 'Supply:'
     print '-------'
@@ -80,6 +94,7 @@ def print_state():
     print 'Money: {0}'.format(j['money'])
     print 'Game state: {0}'.format(j['state'])
     print 'Player {0}s turn'.format(j['turn'])
+    log(-7)
 
 def read(card):
     global curr_state
@@ -97,10 +112,22 @@ def read(card):
 
     print 'no such card.'
 
+def log(lines=0):
+    global curr_state
+
+    if not curr_state or not curr_state.get('log'):
+        return
+
+    print ' ~~ Log ~~ '
+    for line in curr_state['log'][lines:]:
+        print line
+
 def poll():
     global gid, uuid, pid, curr_state
     resp = requests.get(server + '/poll/{0}?uuid={1}&pid={2}'.format(gid, uuid, pid))
     curr_state = resp.json()
+    if curr_state['turn'] != pid:
+        poll()
     print_state()
 
 def callback(payload):
@@ -217,7 +244,12 @@ class Client(cmd.Cmd):
         treasures()
 
     def do_read(self, card):
+        """Read information about a card"""
         read(card)
+
+    def do_discard(self, line):
+        """Inspect your discard pile and library"""
+        print_discard()
 
     def do_testgame(self, line):
         create()
@@ -227,6 +259,10 @@ class Client(cmd.Cmd):
     def do_EOF(self, line):
         print ''
         return True
+
+    def do_log(self, line):
+        """Read the game log"""
+        log()
 
 if __name__ == "__main__":
     readline.parse_and_bind("bind ^I rl_complete")

@@ -32,6 +32,12 @@ class Player(object):
             return {'error': 'Not enough money to buy {0}'.format(name)}
         if not self.game.gain(self.deck, card.get('name')):
             return {'error': 'Could not buy card {0}'.format(name)}
+
+        self.game.log.append({
+            'pid': self.id,
+            'action': 'buy',
+            'card': name,
+        })
         self.buys -= 1
         self.money -= c.cost()
         return {}
@@ -85,6 +91,7 @@ class Game(object):
         self.stacks = []
         self.trash = []
         self.scores = {}
+        self.log = []
         self.updated_at = time.time()
         self.state = 'pregame'
 
@@ -131,6 +138,10 @@ class Game(object):
             self.scores[player.id] = player.deck.score()
 
     def next_turn(self):
+        self.log.append({
+            'pid': self.active_player_index,
+            'action': 'end_turn',
+        })
         self.active_player_index = (self.active_player_index + 1) % self.num_players
         if self.active_player:
             self.active_player.finish_turn()
@@ -146,6 +157,10 @@ class Game(object):
         if self.state != 'action':
             return {'error': 'Not in the action phase'}
         self.state = 'buy'
+        self.log.append({
+            'pid': self.active_player_index,
+            'action': 'end_actions',
+        })
         return {}
 
     def add_money(self, money):
@@ -210,6 +225,14 @@ class Game(object):
             return {'error': 'No callbacks registered for player {0}'.format(pid)}
         name, callback = self.callbacks[pid]
         result = callback(pid, payload)
+        if 'error' not in result:
+            self.log.append({
+                'pid': pid,
+                'action': 'callback',
+                'callback_name': name,
+                'payload': payload,
+                'result': result,
+            })
         if result.get('clear'):
             del self.callbacks[pid]
             if not self.callbacks:
@@ -290,6 +313,7 @@ class Game(object):
             'money': player.money,
             'turn': self.active_player_index,
             'callbacks': callbacks,
+            'log': self.log,
         }
 
     def json(self):

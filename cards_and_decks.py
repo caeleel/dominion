@@ -105,7 +105,7 @@ class Attack(Action):
 
     def resolve(self, pid, blocked):
         for player in self.waiting_players:
-            if player.pid == pid:
+            if player.id == pid:
                 if not blocked:
                     self.to_attack.append(player)
                 self.waiting_players.remove(player)
@@ -327,6 +327,13 @@ class Deck(object):
         result = card.play(payload)
 
         if 'error' not in result:
+            self.game.log.append({
+                'pid': self.game.active_player.id,
+                'action': 'play',
+                'card': card.__class__.__name__,
+                'payload': payload,
+                'result': result,
+            })
             if not card.is_treasure():
                 self.player.actions -= 1
         else:
