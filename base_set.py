@@ -266,8 +266,7 @@ class Militia(Attack):
         return {'clear': True}
 
     def attack(self, players):
-        for player in players:
-            self.game.add_callback("discard_to_3", self.discard_down, players)
+        self.game.add_callback("discard_to_3", self.discard_down, players)
         return {}
 
 class Moneylender(Action):
@@ -394,11 +393,15 @@ class Thief(Attack):
             return {'error': 'Param to_trash must be dict.'}
 
         names = {}
-        for k, v in self.revealed:
+        for k, v in self.revealed.iteritems():
             names[k] = {}
             for card in v:
                 names[k][x.__class__.__name__] = card
-        for opp, trash in to_trash:
+        for opp, trash in to_trash.iteritems():
+            try:
+                opp = int(opp)
+            except ValueError:
+                return {'error': 'Keys must be ints'}
             if opp not in self.revealed:
                 return {'error': 'Invalid pid in to_trash.'}
             if not isinstance(trash, dict):
@@ -409,7 +412,8 @@ class Thief(Attack):
             if not names[opp][name].is_treasure():
                 return {'error': 'Cannot trash non-treasure {0}.'.format(name)}
 
-        for opp, trash in to_trash:
+        for opp, trash in to_trash.iteritems():
+            opp = int(opp)
             card = names[opp][trash.get('name')]
             self.revealed[opp].remove(card)
             if trash.get('keep'):
@@ -424,7 +428,7 @@ class Thief(Attack):
         if pid != self.game.active_player.id:
             return {'error': 'Invalid pid'}
         revealed = {}
-        for k, v in self.revealed:
+        for k, v in self.revealed.iteritems():
             revealed[k] = [x.dict() for x in v]
         result = {'revealed': revealed}
         self.game.add_callback('steal_cards', self.steal_cards, [self.game.active_player])
@@ -460,7 +464,7 @@ class ThroneRoom(Action):
     def play(self, payload):
         deck = self.game.active_deck
         card = payload.get('card')
-        payload1 = payload.get('payload1', {})
+        payload1 = payload.get('payload', {})
 
         if not isinstance(card, dict):
             return {'error': 'Target is not valid card'}

@@ -124,7 +124,10 @@ class Attack(Action):
                 if 'attack' in c.reacts_to():
                     self.waiting_players.add(player)
 
-        self.game.callback_reaction(self.resolve, list(self.waiting_players), 'attack')
+        if self.waiting_players:
+            self.game.callback_reaction(self.resolve, list(self.waiting_players), 'attack')
+        else:
+            self.attack(self.game.opponents())
         return {}
 
 class Estate(Victory):
@@ -175,19 +178,18 @@ class Deck(object):
 
     def __init__(self, player, game):
         self.discard = []
+        self.hand = []
+        self.tmp_zone = []
+        self.library = []
+        self.player = player
+        self.game = game
         for i in xrange(7):
             game.gain(self, 'Copper')
         for i in xrange(3):
             game.gain(self, 'Estate')
 
-        self.hand = []
-        self.tmp_zone = []
-        self.library = []
         self.shuffle()
         self.redraw()
-        self.player = player
-        self.game = game
-        self.deck_id = player.id
 
     def size(self):
         return len(self.library) + len(self.tmp_zone) + len(self.discard) + len(self.hand)

@@ -197,6 +197,12 @@ class Game(object):
         card = self.cards[card_name]
         if card[1] <= 0:
             return None
+
+        self.log.append({
+            'pid': deck.player.id,
+            'action': 'gain',
+            'card': card_name,
+        })
         self.cards[card_name] = (card[0], card[1] - 1)
         if card[1] == 1:
             self.empty_stacks += 1
@@ -288,7 +294,8 @@ class Game(object):
         deck = player.deck.dict()
         supply = [{'card': x[0].dict(), 'left': x[1]} for x in self.cards.values()]
         supply = sorted(supply, key=lambda x: x['card'].get('cost'))
-        for pid, callback in self.callbacks:
+
+        for pid, callback in self.callbacks.iteritems():
             callbacks[pid] = callback[0]
 
         trash = [x.dict() for x in self.trash]

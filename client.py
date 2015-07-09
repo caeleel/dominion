@@ -89,12 +89,15 @@ def print_state():
         print '{0}: [{1}] / ({2})'.format(c['card']['name'], c['card']['cost'], c['left'])
     print ''
     print 'Hand: ' + ' '.join([x['name'] for x in j['deck']['hand']])
-    print 'Actions: {0}'.format(j['actions'])
-    print 'Buys: {0}'.format(j['buys'])
-    print 'Money: {0}'.format(j['money'])
-    print 'Game state: {0}'.format(j['state'])
+    log(-6)
+    print 'Actions: {0} / Buys: {1} / Money: {2} / Game state: {3}'.format(
+        j['actions'], j['buys'], j['money'], j['state']
+    )
     print 'Player {0}s turn'.format(j['turn'])
-    log(-7)
+    if j['callbacks']:
+        print 'Callbacks: {0}'.format(j['callbacks'])
+
+    wait()
 
 def read(card):
     global curr_state
@@ -122,12 +125,21 @@ def log(lines=0):
     for line in curr_state['log'][lines:]:
         print line
 
+def wait():
+    if curr_state['callbacks'] and str(pid) not in curr_state['callbacks']:
+        poll()
+        return
+    elif curr_state['turn'] != pid:
+        if not curr_state['callbacks'] or str(pid) not in curr_state['callbacks']:
+            poll()
+            return
+
 def poll():
     global gid, uuid, pid, curr_state
     resp = requests.get(server + '/poll/{0}?uuid={1}&pid={2}'.format(gid, uuid, pid))
     curr_state = resp.json()
-    if curr_state['turn'] != pid:
-        poll()
+    wait()
+
     print_state()
 
 def callback(payload):
@@ -136,8 +148,8 @@ def callback(payload):
     if resp.json().get('error'):
         print resp.json()['error']
     else:
-        curr_state = resp.json()
-        print_state()
+        print resp.json()
+        poll()
 
 def buy(card):
     global gid, uuid, pid, curr_state
@@ -154,8 +166,8 @@ def play(card, payload={}):
     if resp.json().get('error'):
         print resp.json()['error']
     else:
-        curr_state = resp.json()
-        print_state()
+        print resp.json()
+        poll()
 
 def treasures():
     global curr_state
@@ -192,28 +204,41 @@ class Client(cmd.Cmd):
         else:
             join()
 
-    def do_play(self, card):
-        """Plays the specified card"""
-        args = card.split(' ')
+    def parse_cmd(self, args):
         if len(args) == 1:
-            play(card)
+            return args[0], {}
         else:
             cmd = args[0]
-            if cmd in ('Remodel', 'Mine'):
+            if cmd == 'Chancellor':
+                if len(args) != 1:
+                    print 'Chancellor requires exactly 1 argument'
+                return cmd, {'discard_deck': args[0] == 'discard'}
+            elif cmd in ('Remodel', 'Mine'):
                 if len(args) != 3:
                     print '{0} requires exactly 2 arguments'.format(cmd)
-                    return
-                play(cmd, {'trash': {'name': args[1]}, 'gain': {'name': args[2]}})
+                    return None, None
+                return cmd, {'trash': {'name': args[1]}, 'gain': {'name': args[2]}}
             elif cmd in ('Workshop', 'Feast'):
                 if len(args) != 2:
                     print '{0} requires exactly 1 argument'.format(cmd)
-                    return
-                play(cmd, {'gain': {'name': args[1]}})
+                    return None, None
+                return cmd, {'gain': {'name': args[1]}}
+            elif cmd == 'ThroneRoom':
+                cmd2, payload = self.parse_cmd(args[1:])
+                return cmd, {'card': {'name': cmd2}, 'payload': payload}
             else:
                 payload = {'cards': []}
                 for c in args[1:]:
                     payload['cards'].append({'name': c})
-                play(cmd, payload)
+                return cmd, payload
+
+    def do_play(self, card):
+        """Plays the specified card"""
+        args = card.split(' ')
+        cmd, payload = self.parse_cmd(args)
+        if cmd is None:
+            return
+        play(cmd, payload)
 
     def complete_play(self, text, line, begidx, endidx):
         if not text:
@@ -239,7 +264,7 @@ class Client(cmd.Cmd):
         """Go to next stage or next player"""
         next()
 
-    def do_treasure(self, line):
+    def do_spend(self, line):
         """Play all treasure cards"""
         treasures()
 
@@ -262,7 +287,68 @@ class Client(cmd.Cmd):
 
     def do_log(self, line):
         """Read the game log"""
-        log()
+        try:
+            line = int(line)
+        except ValueError:
+            line = 0
+        log(-line)
+
+    def do_responses(self, line):
+        """Respond to callbacks"""
+        args = line.split(' ')
+        if not line:
+            callback({})
+        else:
+            payload = {'cards': []}
+            for c in args:
+                payload['cards'].append({'name': c})
+            callback(payload)
+
+    def do_response(self, line):
+        """Respond to callback"""
+        callback({'card': {'name': line}})
+
+    def do_throne2(self, line):
+        """Execute secondary throneroom actions"""
+        args = line.split(' ')
+        cmd, payload = self.parse_cmd(args)
+        callback(payload)
+
+    def do_spy(self, line):
+        """Finish spying"""
+        if not line:
+            callback({'discard': []})
+            return
+
+        pids = line.split(' ')
+        try:
+            pids = [int(x) for x in pids]
+        except ValueError:
+            print 'spy arguments must be ints'
+            return
+        callback({'discard': pids})
+
+    def do_thief(self, line):
+        """Finish thieving"""
+        trashes = line.split(',')
+        to_trash = {}
+        for trash in trashes:
+            cmd = trash.split(' ')
+            if len(cmd) != 3:
+                print 'thief arguments must be sets of 3'
+                return
+            try:
+                cmd[0] = int(cmd[0])
+            except ValueError:
+                print 'first argument in set must be int'
+                return
+            to_trash[cmd[0]] = {'name': cmd[2], 'keep': cmd[1] == 'keep'}
+
+        callback({'to_trash': to_trash})
+
+    def do_library(self, line):
+        """Respond to library callback"""
+        callback({'keep': line == 'keep'})
 
 if __name__ == "__main__":
     readline.parse_and_bind("bind ^I rl_complete")
