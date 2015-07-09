@@ -78,7 +78,7 @@ class Moat(Reaction):
     def react(self, pid, payload):
         return True
 
-    def play(self):
+    def play(self, payload):
         self.game.active_deck.draw(2)
         return {}
 
@@ -150,7 +150,7 @@ class Workshop(Action):
         else:
             return {'error': 'No {0}s left'.format(card['name'])}
 
-class Bureaucrat(Action):
+class Bureaucrat(Attack):
     def cost(self):
         return 4
 
@@ -254,7 +254,7 @@ class Militia(Attack):
             return {'error': 'Must discard down to 3 cards'}
 
         for card in cards:
-            if not isinstance(cards, dict):
+            if not isinstance(card, dict):
                 return {'error': 'Invalid card'}
             name = card.get('name')
             if deck.find_card_in_hand(card) is None:

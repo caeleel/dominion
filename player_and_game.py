@@ -308,6 +308,9 @@ class Game(object):
                 'library_size': len(x.deck.library),
             } for x in self.opponents(player_id)
         ]
+
+        #print deck
+
         return {
             'deck': deck,
             'supply': supply,

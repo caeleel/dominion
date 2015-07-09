@@ -3,6 +3,7 @@ import cmd
 import argparse
 import json
 import readline
+import sys
 
 gid = None
 uuid = None
@@ -33,8 +34,10 @@ def join(game=None):
     if not start_key:
         poll()
 
+def cancel():
+    requests.post(server + '/game/{0}/cancel?uuid={1}&pid={2}'.format(gid, uuid, pid))
+
 def start():
-    global gid, start_key
     resp = requests.post(server + '/start/{0}/{1}'.format(gid, start_key))
     if not resp.json():
         print 'started'
@@ -43,8 +46,6 @@ def start():
         print resp.json()
 
 def print_discard():
-    global curr_state
-
     if not curr_state:
         return
 
@@ -53,9 +54,7 @@ def print_discard():
     print ', '.join([x['name'] for x in curr_state['deck']['discard']])
     print 'Library size: {0}'.format(curr_state['deck']['library_size'])
 
-def print_state():
-    global curr_state, pid
-
+def auto_advance():
     if not curr_state:
         return
 
@@ -65,18 +64,28 @@ def print_state():
         if j['state'] == 'action':
             if j['actions'] <= 0:
                 next()
-                return
+                return True
             found = False
+            #print j['deck']['hand']
             for card in j['deck']['hand']:
+                if not card or 'type' not in card:
+                    continue
                 if 'Action' in card['type']:
                     found = True
                     break
             if not found:
                 next()
-                return
+                return True
         elif j['state'] == 'buy' and j['buys'] <= 0:
             next()
-            return
+            return True
+    return False
+
+def print_state():
+    if not curr_state:
+        return
+
+    j = curr_state
 
     print 'Supply:'
     print '-------'
@@ -97,11 +106,7 @@ def print_state():
     if j['callbacks']:
         print 'Callbacks: {0}'.format(j['callbacks'])
 
-    wait()
-
 def read(card):
-    global curr_state
-
     if not curr_state:
         return
 
@@ -116,8 +121,6 @@ def read(card):
     print 'no such card.'
 
 def log(lines=0):
-    global curr_state
-
     if not curr_state or not curr_state.get('log'):
         return
 
@@ -125,49 +128,61 @@ def log(lines=0):
     for line in curr_state['log'][lines:]:
         print line
 
+def set_state():
+    global curr_state
+
+    resp = requests.get(server + '/poll/{0}?uuid={1}&pid={2}'.format(gid, uuid, pid))
+    if resp.json().get('cancel'):
+        sys.exit(1)
+    handle_resp(resp)
+
 def wait():
-    if curr_state['callbacks'] and str(pid) not in curr_state['callbacks']:
-        poll()
-        return
-    elif curr_state['turn'] != pid:
-        if not curr_state['callbacks'] or str(pid) not in curr_state['callbacks']:
-            poll()
-            return
+    while True:
+        if curr_state['callbacks'] and str(pid) not in curr_state['callbacks']:
+            set_state()
+        elif curr_state['turn'] != pid:
+            if not curr_state['callbacks'] or str(pid) not in curr_state['callbacks']:
+                set_state()
+            else:
+                break
+        else:
+            break
 
 def poll():
-    global gid, uuid, pid, curr_state
-    resp = requests.get(server + '/poll/{0}?uuid={1}&pid={2}'.format(gid, uuid, pid))
-    curr_state = resp.json()
+    if not curr_state:
+        set_state()
     wait()
+    while True:
+        if not auto_advance():
+            break
+        wait()
 
+def handle_resp(resp, do_poll=True):
+    global curr_state
+
+    if 'result' in resp.json():
+        if resp.json()['result'].get('error'):
+            print resp.json()['result']['error']
+            return
+        else:
+            print resp.json()['result']
+
+    curr_state = resp.json()['state']
     print_state()
+    if do_poll:
+        poll()
 
 def callback(payload):
-    global gid, uuid, pid, curr_state
     resp = requests.post(server + '/game/{0}/callback?uuid={1}&pid={2}'.format(gid, uuid, pid), data=json.dumps(payload), headers={'content-type': 'application/json'})
-    if resp.json().get('error'):
-        print resp.json()['error']
-    else:
-        print resp.json()
-        poll()
+    handle_resp(resp)
 
 def buy(card):
-    global gid, uuid, pid, curr_state
     resp = requests.post(server + '/game/{0}/buy/{1}?uuid={2}&pid={3}'.format(gid, card, uuid, pid))
-    if resp.json().get('error'):
-        print resp.json()['error']
-    else:
-        curr_state = resp.json()
-        print_state()
+    handle_resp(resp)
 
 def play(card, payload={}):
-    global gid, uuid, pid, curr_state
     resp = requests.post(server + '/game/{0}/play/{1}?uuid={2}&pid={3}'.format(gid, card, uuid, pid), data=json.dumps(payload), headers={'content-type': 'application/json'})
-    if resp.json().get('error'):
-        print resp.json()['error']
-    else:
-        print resp.json()
-        poll()
+    handle_resp(resp)
 
 def treasures():
     global curr_state
@@ -178,13 +193,8 @@ def treasures():
             play(card['name'])
 
 def next():
-    global gid, uuid, pid, curr_state
     resp = requests.post(server + '/game/{0}/next_phase?uuid={1}&pid={2}'.format(gid, uuid, pid))
-    if resp.json().get('error'):
-        print resp.json()['error']
-    else:
-        curr_state = resp.json()
-        print_state()
+    handle_resp(resp, False)
 
 class Client(cmd.Cmd):
     prompt = '> '
@@ -210,9 +220,10 @@ class Client(cmd.Cmd):
         else:
             cmd = args[0]
             if cmd == 'Chancellor':
-                if len(args) != 1:
-                    print 'Chancellor requires exactly 1 argument'
-                return cmd, {'discard_deck': args[0] == 'discard'}
+                if len(args) > 2:
+                    print 'Chancellor requires 0 or 1 argument'
+                    return None, None
+                return cmd, {'discard_deck': len(args) == 2}
             elif cmd in ('Remodel', 'Mine'):
                 if len(args) != 3:
                     print '{0} requires exactly 2 arguments'.format(cmd)
@@ -349,6 +360,10 @@ class Client(cmd.Cmd):
     def do_library(self, line):
         """Respond to library callback"""
         callback({'keep': line == 'keep'})
+
+    def do_cancel(self, line):
+        """Cancel active polls"""
+        cancel()
 
 if __name__ == "__main__":
     readline.parse_and_bind("bind ^I rl_complete")

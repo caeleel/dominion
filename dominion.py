@@ -25,12 +25,21 @@ class GameManager(object):
         game_map[self.uuid] = self
         self.game = Game()
         self.changed = {}
+        self.cancel = {}
+
+    def cancel_poll(self):
+        for pid in self.changed:
+            self.cancel[pid] = True
 
     def poll(self, pid):
         while not self.changed[pid]:
             time.sleep(POLL_INTERVAL)
+            if self.cancel.get(pid):
+                self.cancel[pid] = False
+                return {'cancel': True}
+
         self.changed[pid] = False
-        return self.game.dict(pid)
+        return {'state': self.game.dict(pid), 'result': {}}
 
     def num_players(self):
         return self.game.num_players
@@ -117,10 +126,16 @@ def callback(game):
     result = game.callback(pid, payload)
     if 'error' not in result:
         game_manager.has_changed()
-    if result == {}:
-        return game.dict(pid)
-    else:
-        return result
+    return {'state': game.dict(pid), 'result': result}
+
+@app.route('/game/<game>/cancel', methods=['POST'])
+@json_response
+def cancel_poll(game):
+    pid, game_manager = validate_player(game)
+    if game_manager is None:
+        return {'error': 'Invalid game / pid / uuid'}
+    game_manager.cancel_poll()
+    return {}
 
 @app.route('/game/<game>/play/<card>', methods=['POST'])
 @json_response
@@ -138,10 +153,7 @@ def play_card(game, card):
     result = game.play({'name': card}, payload)
     if 'error' not in result:
         game_manager.has_changed()
-    if result == {}:
-        return game.dict(pid)
-    else:
-        return result
+    return {'state': game.dict(pid), 'result': result}
 
 @app.route('/game/<game>/buy/<card>', methods=['POST'])
 @json_response
@@ -156,9 +168,7 @@ def buy_card(game, card):
     result = game.buy({'name': card})
     if result == {}:
         game_manager.has_changed()
-        return game.dict(pid)
-    else:
-        return result
+    return {'state': game.dict(pid), 'result': result}
 
 @app.route('/game/<game>/next_phase', methods=['POST'])
 @json_response
@@ -177,9 +187,7 @@ def next_phase(game):
 
     if result == {}:
         game_manager.has_changed()
-        return game.dict(pid)
-    else:
-        return result
+    return {'state': game.dict(pid), 'result': result}
 
 @app.route('/poll/<game>', methods=['GET'])
 @json_response
