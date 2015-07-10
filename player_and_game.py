@@ -325,6 +325,3 @@ class Game(object):
             'callbacks': callbacks,
             'log': self.log,
         }
-
-    def json(self):
-        return json.dumps(self.dict())

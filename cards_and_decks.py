@@ -1,5 +1,4 @@
 import random
-import json
 import copy
 
 class Card(object):
@@ -66,9 +65,6 @@ class Card(object):
             'text': self.text(),
             'type': type,
         }
-
-    def json(self):
-        return json.dumps(self.dict())
 
 class Treasure(Card):
     def is_treasure(self):
@@ -208,9 +204,6 @@ class Deck(object):
             'discard': discard,
             'library_size': len(self.library),
         }
-
-    def json(self):
-        return json.dumps(self.dict())
 
     def hand_names(self):
         return [card.__class__.__name__ for card in self.hand]
