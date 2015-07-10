@@ -2,7 +2,6 @@ from cards_and_decks import *
 from base_set import *
 import random
 import uuid
-import json
 import time
 
 class Player(object):

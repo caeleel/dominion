@@ -11,6 +11,9 @@ class Card(object):
     def can_block(self):
         return False
 
+    def preplay(self, payload):
+        pass
+
     def play(self, payload):
         raise NotImplementedError
 
@@ -79,6 +82,7 @@ class Treasure(Card):
         return True
 
     def play(self, payload):
+        self.preplay()
         self.game.add_money(self.value())
         return {}
 
@@ -100,9 +104,6 @@ class Reaction(Action):
 class Attack(Action):
     def is_attack(self):
         return True
-
-    def preplay(self, payload):
-        pass
 
     def resolve(self, pid, blocked):
         for player in self.waiting_players:
