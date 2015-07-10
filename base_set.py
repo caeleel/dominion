@@ -189,7 +189,7 @@ class Bureaucrat(Attack):
                 if c.is_victory():
                     victory.add(c)
             if len(victory) == 0:
-                self.game.log({
+                self.game.log.append({
                     'pid': player.id,
                     'action': 'show_hand',
                     'hand': deck.dict()['hand']

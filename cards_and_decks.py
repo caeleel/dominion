@@ -210,7 +210,7 @@ class Deck(object):
         }
 
     def json(self):
-        return json.dumps(self.hand_dict())
+        return json.dumps(self.dict())
 
     def hand_names(self):
         return [card.__class__.__name__ for card in self.hand]

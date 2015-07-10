@@ -66,10 +66,8 @@ def auto_advance():
                 next()
                 return True
             found = False
-            #print j['deck']['hand']
+            print j['deck']['hand']
             for card in j['deck']['hand']:
-                if not card or 'type' not in card:
-                    continue
                 if 'Action' in card['type']:
                     found = True
                     break
