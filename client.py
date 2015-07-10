@@ -103,6 +103,12 @@ def print_state():
     print 'Player {0}s turn'.format(j['turn'])
     if j['callbacks']:
         print 'Callbacks: {0}'.format(j['callbacks'])
+    if j['scores']:
+        print 'Scores:'
+        print '-------'
+        for k, v in j['scores'].iteritems():
+            print '[{0}]: {1}'.format(k, v)
+        sys.exit(0)
 
 def read(card):
     if not curr_state:

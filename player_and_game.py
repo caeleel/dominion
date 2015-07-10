@@ -149,6 +149,7 @@ class Game(object):
         self.active_deck = self.active_player.deck
         if self.is_last_round:
             self.finish_game()
+            return {}
         self.active_player.start_turn()
         self.state = 'action'
         return {}
