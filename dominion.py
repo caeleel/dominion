@@ -8,6 +8,7 @@ import json
 app = Flask(__name__)
 game_map = {}
 POLL_INTERVAL = 2
+shutting_down = False
 
 def json_response(f):
     @wraps(f)
@@ -26,6 +27,13 @@ class GameManager(object):
         self.game = Game()
         self.changed = {}
         self.cancel = {}
+
+    def dict(self):
+        return {
+            'uuid': self.uuid,
+            'players': self.game.num_players,
+            'in_progress': self.game.state != 'pregame',
+        }
 
     def cancel_poll(self):
         for pid in self.changed:
@@ -188,6 +196,11 @@ def next_phase(game):
     if result == {}:
         game_manager.has_changed()
     return {'state': game.dict(pid), 'result': result}
+
+@app.route('/list', methods=['GET'])
+@json_response
+def list_games():
+    return {'games': [x.dict() for x in game_map.values()]}
 
 @app.route('/poll/<game>', methods=['GET'])
 @json_response

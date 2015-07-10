@@ -15,6 +15,7 @@ class Cellar(Action):
     def play(self, payload):
         cards = []
         deck = self.game.active_deck
+        self.game.add_actions(1)
 
         if 'cards' not in payload:
             return {'error': 'No cards discarded'}
@@ -396,7 +397,7 @@ class Thief(Attack):
         for k, v in self.revealed.iteritems():
             names[k] = {}
             for card in v:
-                names[k][x.__class__.__name__] = card
+                names[k][card.__class__.__name__] = card
         for opp, trash in to_trash.iteritems():
             try:
                 opp = int(opp)
@@ -420,7 +421,7 @@ class Thief(Attack):
                 self.game.active_deck.discard.append(card)
             else:
                 self.game.trash.append(card)
-        for opp, cards in self.revealed:
+        for opp, cards in self.revealed.iteritems():
             self.game.players[opp].deck.discard += cards
         return {'clear': True}
 
@@ -679,7 +680,7 @@ class Adventurer(Action):
             "revealed cards."
         ]
 
-    def play(self):
+    def play(self, payload):
         deck = self.game.active_deck
         revealed = []
         discard = []

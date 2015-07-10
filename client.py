@@ -192,9 +192,21 @@ def treasures():
         if card['type'] == 'Treasure':
             play(card['name'])
 
+def list_games():
+    resp = requests.get(server + '/list')
+    print 'Games:'
+    print '------'
+    for game in resp.json()['games']:
+        active = 'waiting'
+        if game['in_progress']:
+            active = 'in progress'
+        print '{0} -> {1} player(s) | {2}'.format(game['uuid'], game['players'], active)
+    print ''
+
 def next():
     resp = requests.post(server + '/game/{0}/next_phase?uuid={1}&pid={2}'.format(gid, uuid, pid))
     handle_resp(resp, False)
+    wait()
 
 class Client(cmd.Cmd):
     prompt = '> '
@@ -341,6 +353,10 @@ class Client(cmd.Cmd):
 
     def do_thief(self, line):
         """Finish thieving"""
+        if line == '':
+            callback({'to_trash': {}})
+            return
+
         trashes = line.split(',')
         to_trash = {}
         for trash in trashes:
@@ -364,6 +380,10 @@ class Client(cmd.Cmd):
     def do_cancel(self, line):
         """Cancel active polls"""
         cancel()
+
+    def do_list(self, line):
+        """List active games"""
+        list_games()
 
 if __name__ == "__main__":
     readline.parse_and_bind("bind ^I rl_complete")

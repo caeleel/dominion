@@ -1,4 +1,4 @@
-from cards import *
+from cards_and_decks import *
 from base_set import *
 import random
 import uuid
