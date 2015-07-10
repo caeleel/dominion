@@ -220,7 +220,7 @@ class Feast(Action):
         deck.trash_tmp_zone({'name': 'Feast'})
         return {}
 
-class Gardens(Card):
+class Gardens(Victory):
     def cost(self):
         return 4
 

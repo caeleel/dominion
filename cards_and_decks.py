@@ -32,6 +32,9 @@ class Card(object):
     def is_victory(self):
         return False
 
+    def is_curse(self):
+        return False
+
     def cost(self):
         return 0
 
@@ -56,6 +59,8 @@ class Card(object):
             type = "Victory"
         elif self.is_action():
             type = "Action"
+        elif self.is_curse():
+            type = "Curse"
 
         return {
             'name': self.__class__.__name__,
@@ -148,6 +153,9 @@ class Province(Victory):
         return 6
 
 class Curse(Card):
+    def is_curse(self):
+        return True
+
     def points(self):
         return -1
 
