@@ -178,6 +178,7 @@ class Bureaucrat(Attack):
         self.game.gain(self.game.active_deck, 'Silver')
         deck = self.game.active_deck
         deck.discard_to_library({'name': 'Silver'})
+        return {}
 
     def attack(self, players):
         callback_targets = []
@@ -244,6 +245,7 @@ class Militia(Attack):
 
     def preplay(self, payload):
         self.game.add_money(2)
+        return {}
 
     def discard_down(self, pid, payload):
         cards = payload.get('cards')
@@ -280,7 +282,7 @@ class Moneylender(Action):
     def play(self, payload):
         deck = self.game.active_deck
         if 'Copper' not in deck.hand_names():
-            return {'error': 'No coppers in hand'}
+            return {'warn': 'no Copper to trash'}
         deck.trash_hand({'name': 'Copper'})
         self.game.add_money(3)
         return {}
@@ -341,6 +343,7 @@ class Spy(Attack):
     def preplay(self, payload):
         self.game.active_deck.draw()
         self.game.add_actions(1)
+        return {}
 
     def choose_discard(self, pid, payload):
         if pid != self.game.active_player.id:
@@ -664,6 +667,7 @@ class Witch(Attack):
 
     def preplay(self, payload):
         self.game.active_deck.draw(2)
+        return {}
 
     def attack(self, players):
         for player in players:
