@@ -10,6 +10,7 @@ class Player(object):
         self.uuid = uuid.uuid4().hex
         self.deck = Deck(self, game)
         self.game = game
+        self.victory_tokens = 0
         self.start_turn()
 
     def start_turn(self):
