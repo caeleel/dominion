@@ -16,6 +16,9 @@ class Player(object):
         self.actions = 1
         self.buys = 1
         self.money = 0
+        for card in self.duration:
+            card.duration()
+        self.duration = []
 
     def finish_turn(self):
         self.deck.redraw()
@@ -190,6 +193,18 @@ class Game(object):
 
     def last_round(self):
         self.is_last_round = True
+
+    def ungain(self, deck, c):
+        if not deck.find_card_in_hand(c):
+            return None
+
+        card_name = card.get('name')
+        card = self.cards[card_name]
+        self.cards[card_name] = (card[0], card[1] + 1)
+        if card[1] == 0:
+            self.empty_stacks -= 1
+        deck.hand.remove(card[0])
+        return card[0]
 
     def gain(self, deck, card_name):
         if card_name not in self.cards:

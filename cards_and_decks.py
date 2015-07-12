@@ -4,6 +4,7 @@ import copy
 class Card(object):
     def __init__(self, game):
         self.game = game
+        self.embargos = 0
 
     def is_playable(self):
         return False
@@ -38,6 +39,9 @@ class Card(object):
     def is_curse(self):
         return False
 
+    def is_duration(self):
+        return False
+
     def cost(self):
         return 0
 
@@ -64,6 +68,8 @@ class Card(object):
             type = "Action"
         elif self.is_curse():
             type = "Curse"
+        elif self.is_duration():
+            type = "Action - Duration"
 
         return {
             'name': self.__class__.__name__,
@@ -108,20 +114,26 @@ class Attack(Action):
     def resolve(self, pid, blocked):
         for player in self.waiting_players:
             if player.id == pid:
-                if not blocked:
-                    self.to_attack.append(player)
+                if blocked:
+                    self.to_attack.remove(player)
                 self.waiting_players.remove(player)
                 break
         if not self.waiting_players:
             self.attack(self.to_attack)
 
     def play(self, payload):
-        self.preplay(payload)
+        result = self.preplay(payload)
+        if 'error' in result:
+            return result
+
         self.waiting_players = set()
-        self.to_attack = []
+        self.to_attack = self.game.opponents()
 
         for player in self.game.opponents():
             deck = player.deck
+            for c in player.durations:
+                if c.blocks_attack():
+                    self.to_attack.remove(player)
             for c in deck.hand:
                 if 'attack' in c.reacts_to():
                     self.waiting_players.add(player)
@@ -129,8 +141,8 @@ class Attack(Action):
         if self.waiting_players:
             self.game.callback_reaction(self.resolve, list(self.waiting_players), 'attack')
         else:
-            self.attack(self.game.opponents())
-        return {}
+            self.attack(self.to_attack)
+        return result
 
 class Estate(Victory):
     def cost(self):
@@ -188,6 +200,8 @@ class Deck(object):
         self.library = []
         self.player = player
         self.game = game
+        self.native_village = []
+
         for i in xrange(7):
             game.gain(self, 'Copper')
         for i in xrange(3):
@@ -208,9 +222,11 @@ class Deck(object):
     def dict(self):
         hand = sorted([x.dict() for x in self.hand], key=lambda x: x.get('cost'))
         discard = [x.dict() for x in self.discard]
+        native_village = [x.dict() for x in self.native_village]
         return {
             'hand': hand,
             'discard': discard,
+            'native_village': native_village,
             'library_size': len(self.library),
         }
 
@@ -278,6 +294,13 @@ class Deck(object):
         if not self.library:
             return None
         return self.library[-1]
+
+    def peek_bottom(self, shuffle=True):
+        if not self.library and shuffle:
+            self.shuffle()
+        if not self.library:
+            return None
+        return self.library[0]
 
     def discard_top(self):
         if self.peek(False) is None:
