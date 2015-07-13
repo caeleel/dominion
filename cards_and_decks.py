@@ -1,10 +1,16 @@
 import random
 import copy
+import uuid
 
 class Card(object):
     def __init__(self, game):
         self.game = game
         self.embargos = 0
+        self.deck = None
+        self.uuid = uuid.uuid4().hex
+
+    def set_deck(self, deck):
+        self.deck = deck
 
     def is_playable(self):
         return False
@@ -12,10 +18,10 @@ class Card(object):
     def can_block(self):
         return False
 
-    def preplay(self, deck, payload):
-        pass
+    def preplay(self, payload):
+        return {}
 
-    def play(self, deck, payload):
+    def play(self, payload):
         raise NotImplementedError
 
     def reacts_to(self):
@@ -80,6 +86,7 @@ class Card(object):
             'cost': self.cost(),
             'points': self.points(),
             'text': self.text(),
+            'uuid': self.uuid,
             'type': type,
         }
 
@@ -90,8 +97,8 @@ class Treasure(Card):
     def is_playable(self):
         return True
 
-    def play(self, deck, payload):
-        self.preplay(deck, payload)
+    def play(self, payload):
+        self.preplay(payload)
         self.game.add_money(self.value())
         return {}
 
@@ -124,8 +131,8 @@ class Attack(Action):
         if not self.waiting_players:
             self.attack(self.to_attack)
 
-    def play(self, deck, payload):
-        result = self.preplay(deck, payload)
+    def play(self, payload):
+        result = self.preplay(payload)
         if 'error' in result:
             return result
 
@@ -354,7 +361,7 @@ class Deck(object):
             return {'error': 'Must play a treasure card'}
         self.tmp_zone.append(card)
         self.hand.remove(card)
-        result = card.play(self.game.active_deck, payload)
+        result = card.play(payload)
 
         if 'error' not in result:
             self.game.log.append({

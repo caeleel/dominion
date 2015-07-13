@@ -87,6 +87,8 @@ class Game(object):
             'Woodcutter': (Woodcutter(self), action_amount),
             'Workshop': (Workshop(self), action_amount),
             'Loan': (Loan(self), action_amount),
+            'TradeRoute': (TradeRoute(self), action_amount),
+            'Watchtower': (Watchtower(self), action_amount),
             'Bishop': (Bishop(self), action_amount),
             'Monument': (Monument(self), action_amount),
             'WorkersVillage': (WorkersVillage(self), action_amount),
@@ -245,8 +247,11 @@ class Game(object):
         card = self.cards[card_name]
         if card[1] <= 0:
             return None
+
+        new_card = card[0].__class__(self)
+        new_card.set_deck(deck)
         if bought:
-            result = card[0].on_buy()
+            result = new_card.on_buy()
             if 'error' in result:
                 return None
 
@@ -256,7 +261,10 @@ class Game(object):
             'card': card_name,
         })
 
-        if card[0].is_victory():
+        for c in deck.hand:
+            if 'gain' in c.reacts_to():
+                c.register_reaction(deck.player.id, new_card)
+        if new_card.is_victory():
             self.victories_gained.add(card[0])
         self.cards[card_name] = (card[0], card[1] - 1)
         if card[1] == 1:
@@ -266,8 +274,8 @@ class Game(object):
             if card_name == 'Colony':
                 self.last_round()
 
-        deck.discard.append(card[0])
-        return card[0]
+        deck.discard.append(new_card)
+        return new_card
 
     def buy(self, card):
         if not isinstance(card, dict):

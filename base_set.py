@@ -12,7 +12,7 @@ class Cellar(Action):
             "+1 Card per card discarded.",
         ]
 
-    def play(self, deck, payload):
+    def play(self, payload):
         cards = []
 
         if 'cards' not in payload:
@@ -21,17 +21,17 @@ class Cellar(Action):
             return {'error': 'Cards must be list.'}
         for card in payload['cards']:
             if not isinstance(card, dict):
-                deck.hand += cards
+                self.deck.hand += cards
                 return {'error': 'Invalid card'}
-            c = deck.find_card_in_hand(card)
+            c = self.deck.find_card_in_hand(card)
             if c is None:
-                deck.hand += cards
+                self.deck.hand += cards
                 return {'error': '{0} not in hand'.format(card.get('name'))}
             cards.append(c)
-            deck.hand.remove(c)
+            self.deck.hand.remove(c)
 
-        deck.discard += cards
-        deck.draw(len(payload['cards']))
+        self.deck.discard += cards
+        self.deck.draw(len(payload['cards']))
 
         self.game.add_actions(1)
         return {}
@@ -43,7 +43,7 @@ class Chapel(Action):
     def text(self):
         return ["Trash up to 4 cards from your hand."]
 
-    def play(self, deck, payload):
+    def play(self, payload):
         cards = []
 
         if 'cards' not in payload:
@@ -55,14 +55,14 @@ class Chapel(Action):
 
         for card in payload['cards']:
             if not isinstance(card, dict):
-                deck.hand += cards
+                self.deck.hand += cards
                 return {'error': 'Invalid card'}
-            c = deck.find_card_in_hand(card)
+            c = self.deck.find_card_in_hand(card)
             if c is None:
-                deck.hand += cards
+                self.deck.hand += cards
                 return {'error': '{0} not in hand'.format(card.get('name'))}
             cards.append(c)
-            deck.hand.remove(c)
+            self.deck.hand.remove(c)
 
         self.game.trash += cards
         return {}
@@ -85,8 +85,8 @@ class Moat(Reaction):
     def react(self, pid, payload):
         return True
 
-    def play(self, deck, payload):
-        self.game.active_deck.draw(2)
+    def play(self, payload):
+        self.deck.draw(2)
         return {}
 
 class Chancellor(Action):
@@ -96,10 +96,10 @@ class Chancellor(Action):
     def text(self):
         return ["You may immediately put your deck into your discard pile"]
 
-    def play(self, deck, payload):
+    def play(self, payload):
         self.game.add_money(2)
         if payload.get('discard_deck'):
-            while self.game.active_deck.discard_top():
+            while self.deck.discard_top():
                 pass
         return {}
 
@@ -113,8 +113,8 @@ class Village(Action):
             "+2 Actions",
         ]
 
-    def play(self, deck, payload):
-        self.game.active_deck.draw()
+    def play(self, payload):
+        self.deck.draw()
         self.game.add_actions(2)
         return {}
 
@@ -128,7 +128,7 @@ class Woodcutter(Action):
             "+$2",
         ]
 
-    def play(self, deck, payload):
+    def play(self, payload):
         self.game.add_buys(1)
         self.game.add_money(2)
         return {}
@@ -140,7 +140,7 @@ class Workshop(Action):
     def text(self):
         return ["Gain a card costing up to $4"]
 
-    def play(self, deck, payload):
+    def play(self, payload):
         if not payload.get('gain'):
             return {'error': 'No card gained'}
         card = payload['gain']
@@ -152,7 +152,7 @@ class Workshop(Action):
         if c.cost() > 4:
             return {'error': 'Cannot gain card worth more than $4'}
 
-        if self.game.gain(self.game.active_deck, card['name']):
+        if self.game.gain(self.deck, card['name']):
             return {}
         else:
             return {'error': 'No {0}s left'.format(card['name'])}
@@ -180,9 +180,9 @@ class Bureaucrat(Attack):
             return {'error': 'Card {0} not in hand'.format(name)}
         return {'clear': True}
 
-    def preplay(self, deck, payload):
-        self.game.gain(self.game.active_deck, 'Silver')
-        deck.discard_to_library({'name': 'Silver'})
+    def preplay(self, payload):
+        self.game.gain(self.deck, 'Silver')
+        self.deck.discard_to_library({'name': 'Silver'})
         return {}
 
     def attack(self, players):
@@ -214,15 +214,15 @@ class Feast(Action):
     def text(self):
         return ["Trash this card. Gain a card costing up to $5"]
 
-    def play(self, deck, payload):
+    def play(self, payload):
         gain = payload.get('gain')
         if not gain:
             return {'error': 'No card to gain specified'}
         if not isinstance(gain, dict):
             return {'error': 'Invalid gain card'}
-        if not self.game.gain(deck, gain['name']):
+        if not self.game.gain(self.deck, gain['name']):
             return {'error': 'Could not gain card'}
-        deck.trash_tmp_zone({'name': 'Feast'})
+        self.deck.trash_tmp_zone({'name': 'Feast'})
         return {}
 
 class Gardens(Victory):
@@ -233,9 +233,9 @@ class Gardens(Victory):
         return ["Worth 1 Victory for every 10 cards in your deck (rounded down)."]
 
     def points(self):
-        if not self.game.active_deck:
+        if not self.deck:
             return 0
-        return self.game.active_deck.size()/10
+        return self.deck.size()/10
 
 class Militia(Attack):
     def cost(self):
@@ -247,7 +247,7 @@ class Militia(Attack):
             "Each other player discards down to 3 cards in his hand.",
         ]
 
-    def preplay(self, deck, payload):
+    def preplay(self, payload):
         self.game.add_money(2)
         return {}
 
@@ -287,10 +287,10 @@ class Moneylender(Action):
     def text(self):
         return ["Trash a Copper from your hand. If you do, +$3."]
 
-    def play(self, deck, payload):
-        if 'Copper' not in deck.hand_names():
+    def play(self, payload):
+        if 'Copper' not in self.deck.hand_names():
             return {'warn': 'no Copper to trash'}
-        deck.trash_hand({'name': 'Copper'})
+        self.deck.trash_hand({'name': 'Copper'})
         self.game.add_money(3)
         return {}
 
@@ -308,17 +308,17 @@ class Remodel(Action):
             "to ${0} more than the trashed card.".format(self.jump)
         ]
 
-    def play(self, deck, payload):
+    def play(self, payload):
         trash = payload.get('trash')
         gain = payload.get('gain')
 
-        if len(deck.hand) == 0 and not trash and not gain:
+        if len(self.deck.hand) == 0 and not trash and not gain:
             return {}
 
         if not isinstance(trash, dict) or not isinstance(gain, dict):
             return {'error': 'Invalid trash or gain card'}
 
-        c1 = deck.find_card_in_hand(trash)
+        c1 = self.deck.find_card_in_hand(trash)
         if not c1:
             return {'error': 'Could not trash {0}'.format(trash.get('name'))}
 
@@ -327,9 +327,9 @@ class Remodel(Action):
             return {'error': 'No such card {0}'.format(gain.get('name'))}
         if c1.cost() + self.jump < c2.cost():
             return {'error': 'Gained card must cost ${0} or less than trashed card'.format(self.jump)}
-        if not self.game.gain(deck, gain['name']):
+        if not self.game.gain(self.deck, gain['name']):
             return {'error': 'Could not gain {0}'.format(gain.get('name'))}
-        deck.trash_hand(trash)
+        self.deck.trash_hand(trash)
         return {}
 
 class Smithy(Action):
@@ -339,8 +339,8 @@ class Smithy(Action):
     def text(self):
         return ["+3 Cards."]
 
-    def play(self, deck, payload):
-        self.game.active_deck.draw(3)
+    def play(self, payload):
+        self.deck.draw(3)
         return {}
 
 class Spy(Attack):
@@ -355,8 +355,8 @@ class Spy(Attack):
             "and either discards it or puts it back, your choice."
         ]
 
-    def preplay(self, deck, payload):
-        self.game.active_deck.draw()
+    def preplay(self, payload):
+        self.deck.draw()
         self.game.add_actions(1)
         return {}
 
@@ -430,7 +430,7 @@ class Thief(Attack):
             card = names[opp][trash.get('name')]
             self.revealed[opp].remove(card)
             if trash.get('keep'):
-                self.game.active_deck.discard.append(card)
+                self.deck.discard.append(card)
             else:
                 self.game.trash.append(card)
         for opp, cards in self.revealed.iteritems():
@@ -484,7 +484,7 @@ class ThroneRoom(Action):
                 result['clear'] = True
         return result
 
-    def play(self, deck, payload):
+    def play(self, payload):
         card = payload.get('card')
         if not card:
             return {}
@@ -497,23 +497,22 @@ class ThroneRoom(Action):
             return {'error': 'Secondary payloads not valid'}
 
         name = card.get('name')
-        c1 = deck.find_card_in_hand(card)
+        c1 = self.deck.find_card_in_hand(card)
 
         if not c1:
             return {'error': '{0} not in hand'.format(name)}
         if not c1.is_action():
             return {'error': '{0} is not an action'.format(name)}
 
-        deck.tmp_zone.append(c1)
-        deck.hand.remove(c1)
-
-        self.c1 = c1.__class__(self.game)
+        self.deck.tmp_zone.append(c1)
+        self.deck.hand.remove(c1)
+        self.c1 = c1
         self.repeats = self.repeat
 
         result = self.c1.play(payload1)
         if 'error' in result:
-            deck.tmp_zone.remove(c1)
-            deck.hand.append(c1)
+            self.deck.tmp_zone.remove(c1)
+            self.deck.hand.append(c1)
             return result
 
         self.game.queue_callback(
@@ -534,8 +533,8 @@ class CouncilRoom(Action):
             "Each other player draws a card.",
         ]
 
-    def play(self, deck, payload):
-        self.game.active_deck.draw(4)
+    def play(self, payload):
+        self.deck.draw(4)
         self.game.add_buys(1)
         for opp in self.game.opponents():
             opp.deck.draw()
@@ -552,7 +551,7 @@ class Festival(Action):
             "+$2",
         ]
 
-    def play(self, deck, payload):
+    def play(self, payload):
         self.game.add_actions(2)
         self.game.add_buys(1)
         self.game.add_money(2)
@@ -568,8 +567,8 @@ class Laboratory(Action):
             "+1 Action",
         ]
 
-    def play(self, deck, payload):
-        self.game.active_deck.draw(2)
+    def play(self, payload):
+        self.deck.draw(2)
         self.game.add_actions(1)
         return {}
 
@@ -606,11 +605,11 @@ class Library(Action):
         else:
             return {'clear': True}
 
-    def play(self, deck, payload):
-        c = deck.peek()
+    def play(self, payload):
+        c = self.deck.peek()
         self.set_aside = []
 
-        if c is not None and len(deck.hand) < 7:
+        if c is not None and len(self.deck.hand) < 7:
             self.game.add_callback(
                 'draw_card',
                 self.draw_card,
@@ -632,8 +631,8 @@ class Market(Action):
             "+$1",
         ]
 
-    def play(self, deck, payload):
-        self.game.active_deck.draw(1)
+    def play(self, payload):
+        self.deck.draw()
         self.game.add_actions(1)
         self.game.add_buys(1)
         self.game.add_money(1)
@@ -649,13 +648,13 @@ class Mine(Action):
             "costing up to $3 more; put it into your hand."
         ]
 
-    def play(self, deck, payload):
+    def play(self, payload):
         trash = payload.get('trash')
         gain = payload.get('gain')
-        if not isinstance(card, dict) or not isinstance(gain, dict):
+        if not isinstance(trash, dict) or not isinstance(gain, dict):
             return {'error': 'Invalid trash or gain card'}
 
-        c1 = deck.find_card_in_hand(trash)
+        c1 = self.deck.find_card_in_hand(trash)
         if not c1:
             return {'error': 'No such card {0} in hand'.format(trash.get('name'))}
         if not c1.is_treasure():
@@ -668,11 +667,11 @@ class Mine(Action):
             return {'error': 'Gained card must not cost $4 or more than trashed card'}
         if not c2.is_treasure():
             return {'error': 'Gained card is not treasure'}
-        if not self.game.gain(deck, gain['name']):
+        if not self.game.gain(self.deck, gain['name']):
             return {'error': 'Could not gain {0}'.format(gain.get('name'))}
 
-        deck.discard_to_hand(gain)
-        deck.trash_hand(trash)
+        self.deck.discard_to_hand(gain)
+        self.deck.trash_hand(trash)
         return {}
 
 class Witch(Attack):
@@ -685,8 +684,8 @@ class Witch(Attack):
             "Each other player gains a Curse card.",
         ]
 
-    def preplay(self, deck, payload):
-        self.game.active_deck.draw(2)
+    def preplay(self, payload):
+        self.deck.draw(2)
         return {}
 
     def attack(self, players):
@@ -704,21 +703,21 @@ class Adventurer(Action):
             "revealed cards."
         ]
 
-    def play(self, deck, payload):
+    def play(self, payload):
         revealed = []
         discard = []
         num_treasures = 0
 
         while True:
-            c = deck.peek()
+            c = self.deck.peek()
             if c is None:
                 break
             if c.is_treasure():
-                deck.draw()
+                self.deck.draw()
                 num_treasures += 1
             else:
-                discard.append(deck.library.pop())
+                discard.append(self.deck.library.pop())
             revealed.append(c.dict())
 
-        deck.discard += discard
+        self.deck.discard += discard
         return {'revealed': revealed}
