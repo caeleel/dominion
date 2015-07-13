@@ -12,9 +12,8 @@ class Cellar(Action):
             "+1 Card per card discarded.",
         ]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         cards = []
-        deck = self.game.active_deck
 
         if 'cards' not in payload:
             return {'error': 'No cards discarded'}
@@ -44,9 +43,8 @@ class Chapel(Action):
     def text(self):
         return ["Trash up to 4 cards from your hand."]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         cards = []
-        deck = self.game.active_deck
 
         if 'cards' not in payload:
             return {'error': 'No cards to trash.'}
@@ -87,7 +85,7 @@ class Moat(Reaction):
     def react(self, pid, payload):
         return True
 
-    def play(self, payload):
+    def play(self, deck, payload):
         self.game.active_deck.draw(2)
         return {}
 
@@ -98,7 +96,7 @@ class Chancellor(Action):
     def text(self):
         return ["You may immediately put your deck into your discard pile"]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         self.game.add_money(2)
         if payload.get('discard_deck'):
             while self.game.active_deck.discard_top():
@@ -115,7 +113,7 @@ class Village(Action):
             "+2 Actions",
         ]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         self.game.active_deck.draw()
         self.game.add_actions(2)
         return {}
@@ -130,7 +128,7 @@ class Woodcutter(Action):
             "+$2",
         ]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         self.game.add_buys(1)
         self.game.add_money(2)
         return {}
@@ -142,7 +140,7 @@ class Workshop(Action):
     def text(self):
         return ["Gain a card costing up to $4"]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         if not payload.get('gain'):
             return {'error': 'No card gained'}
         card = payload['gain']
@@ -182,9 +180,8 @@ class Bureaucrat(Attack):
             return {'error': 'Card {0} not in hand'.format(name)}
         return {'clear': True}
 
-    def preplay(self, payload):
+    def preplay(self, deck, payload):
         self.game.gain(self.game.active_deck, 'Silver')
-        deck = self.game.active_deck
         deck.discard_to_library({'name': 'Silver'})
         return {}
 
@@ -217,8 +214,7 @@ class Feast(Action):
     def text(self):
         return ["Trash this card. Gain a card costing up to $5"]
 
-    def play(self, payload):
-        deck = self.game.active_deck
+    def play(self, deck, payload):
         gain = payload.get('gain')
         if not gain:
             return {'error': 'No card to gain specified'}
@@ -251,7 +247,7 @@ class Militia(Attack):
             "Each other player discards down to 3 cards in his hand.",
         ]
 
-    def preplay(self, payload):
+    def preplay(self, deck, payload):
         self.game.add_money(2)
         return {}
 
@@ -291,8 +287,7 @@ class Moneylender(Action):
     def text(self):
         return ["Trash a Copper from your hand. If you do, +$3."]
 
-    def play(self, payload):
-        deck = self.game.active_deck
+    def play(self, deck, payload):
         if 'Copper' not in deck.hand_names():
             return {'warn': 'no Copper to trash'}
         deck.trash_hand({'name': 'Copper'})
@@ -313,8 +308,7 @@ class Remodel(Action):
             "to ${0} more than the trashed card.".format(self.jump)
         ]
 
-    def play(self, payload):
-        deck = self.game.active_deck
+    def play(self, deck, payload):
         trash = payload.get('trash')
         gain = payload.get('gain')
 
@@ -345,7 +339,7 @@ class Smithy(Action):
     def text(self):
         return ["+3 Cards."]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         self.game.active_deck.draw(3)
         return {}
 
@@ -361,7 +355,7 @@ class Spy(Attack):
             "and either discards it or puts it back, your choice."
         ]
 
-    def preplay(self, payload):
+    def preplay(self, deck, payload):
         self.game.active_deck.draw()
         self.game.add_actions(1)
         return {}
@@ -490,8 +484,7 @@ class ThroneRoom(Action):
                 result['clear'] = True
         return result
 
-    def play(self, payload):
-        deck = self.game.active_deck
+    def play(self, deck, payload):
         card = payload.get('card')
         if not card:
             return {}
@@ -541,7 +534,7 @@ class CouncilRoom(Action):
             "Each other player draws a card.",
         ]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         self.game.active_deck.draw(4)
         self.game.add_buys(1)
         for opp in self.game.opponents():
@@ -559,7 +552,7 @@ class Festival(Action):
             "+$2",
         ]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         self.game.add_actions(2)
         self.game.add_buys(1)
         self.game.add_money(2)
@@ -575,7 +568,7 @@ class Laboratory(Action):
             "+1 Action",
         ]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         self.game.active_deck.draw(2)
         self.game.add_actions(1)
         return {}
@@ -591,11 +584,11 @@ class Library(Action):
             "the set aside cards after you finish drawing."
         ]
 
-    def draw_card(self, payload):
+    def draw_card(self, pid, payload):
         if 'keep' not in payload:
             return {'error': 'Need to specify keep parameter.'}
 
-        deck = self.game.active_deck
+        deck = self.game.player[pid].deck
         c = deck.peek()
         if not payload['keep'] and not c.is_action():
             return {'error': 'Cannot discard a non-action card.'}
@@ -613,8 +606,7 @@ class Library(Action):
         else:
             return {'clear': True}
 
-    def play(self, payload):
-        deck = self.game.active_deck
+    def play(self, deck, payload):
         c = deck.peek()
         self.set_aside = []
 
@@ -640,7 +632,7 @@ class Market(Action):
             "+$1",
         ]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         self.game.active_deck.draw(1)
         self.game.add_actions(1)
         self.game.add_buys(1)
@@ -657,13 +649,12 @@ class Mine(Action):
             "costing up to $3 more; put it into your hand."
         ]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         trash = payload.get('trash')
         gain = payload.get('gain')
         if not isinstance(card, dict) or not isinstance(gain, dict):
             return {'error': 'Invalid trash or gain card'}
 
-        deck = self.game.active_deck
         c1 = deck.find_card_in_hand(trash)
         if not c1:
             return {'error': 'No such card {0} in hand'.format(trash.get('name'))}
@@ -694,7 +685,7 @@ class Witch(Attack):
             "Each other player gains a Curse card.",
         ]
 
-    def preplay(self, payload):
+    def preplay(self, deck, payload):
         self.game.active_deck.draw(2)
         return {}
 
@@ -713,8 +704,7 @@ class Adventurer(Action):
             "revealed cards."
         ]
 
-    def play(self, payload):
-        deck = self.game.active_deck
+    def play(self, deck, payload):
         revealed = []
         discard = []
         num_treasures = 0

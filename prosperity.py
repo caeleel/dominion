@@ -22,8 +22,7 @@ class Loan(Treasure):
             self.game.trash.append(self.revealed[-1])
         return {'clear': True}
 
-    def preplay(self, payload):
-        deck = self.game.active_deck
+    def preplay(self, deck, payload):
         card = None
         self.revealed = []
         while True:
@@ -38,7 +37,7 @@ class Loan(Treasure):
             self.game.add_callback(
                 'discard_or_trash',
                 self.discard_or_trash,
-                [self.game.active_player]
+                [deck.player.id]
             )
         return {'revealed': [x.dict() for x in self.revealed]}
 
@@ -48,23 +47,49 @@ class TradeRoute(Reaction):
 
     def text(self):
         return [
-
+            "+1 Buy",
+            "+$1 per token on the Trade Route mat.",
+            "Trash a card from your hand.",
+            "------",
+            "Setup: Put a token on each Victory card Supply pile. When a " + \
+            "card is gained from that pile, move the token to the Trade " + \
+            "Route mat."
         ]
 
-    def play(self, payload):
-        pass
+    def play(self, deck, payload):
+        card = payload.get('trash')
+        if not isinstance(card, dict):
+            return {'error': 'Invalid trash card.'}
+        c = deck.trash_hand(card)
+        if c is None:
+            return {'error': 'Card {0} not in hand'.format(card.get('name'))}
+
+        self.game.add_buys(1)
+        self.game.add_money(len(self.game.victories_gained))
+        return {}
 
 class Watchtower(Reaction):
     def cost(self):
         return 3
 
+    def reacts_to(self):
+        return ['gain']
+
+    def react(self, pid, payload):
+        pass
+
     def text(self):
         return [
-
+            "Draw until you have 6 cards in hand.",
+            "When you gain a card, you may reveal this from your hand. If " + \
+            "you do, either trash that card, or put it on top of your deck.",
         ]
 
-    def play(self, payload):
-        pass
+    def play(self, deck, payload):
+        while len(deck.hand) < 6:
+            if not deck.draw():
+                break
+        return {}
 
 class Bishop(Action):
     def cost(self):
@@ -93,8 +118,8 @@ class Bishop(Action):
             self.game.players[pid].victory_tokens += c.cost() / 2
         return {}
 
-    def play(self, payload):
-        result = self.maybe_trash(self.game.active_player.id, payload, True)
+    def play(self, deck, payload):
+        result = self.maybe_trash(deck.player.id, payload, True)
         if 'error' in result:
             return result
         self.game.add_callback(
@@ -114,8 +139,8 @@ class Monument(Action):
             "+1 VP token."
         ]
 
-    def play(self, payload):
-        self.game.active_player.victory_tokens += 1
+    def play(self, deck, payload):
+        deck.player.victory_tokens += 1
         self.game.add_money(2)
         return {}
 
@@ -128,7 +153,7 @@ class Quarry(Treasure):
 
         ]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         pass
 
 class Talisman(Treasure):
@@ -140,7 +165,7 @@ class Talisman(Treasure):
 
         ]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         pass
 
 class WorkersVillage(Action):
@@ -154,7 +179,7 @@ class WorkersVillage(Action):
             "+1 Buy",
         ]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         self.game.active_deck.draw()
         self.game.add_actions(2)
         self.game.add_buys(1)
@@ -169,7 +194,7 @@ class City(Action):
 
         ]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         pass
 
 class Contraband(Treasure):
@@ -181,7 +206,7 @@ class Contraband(Treasure):
 
         ]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         pass
 
 class CountingHouse(Action):
@@ -193,7 +218,7 @@ class CountingHouse(Action):
 
         ]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         pass
 
 class Mint(Action):
@@ -205,7 +230,7 @@ class Mint(Action):
 
         ]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         pass
 
 class Mountebank(Attack):
@@ -217,7 +242,7 @@ class Mountebank(Attack):
 
         ]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         pass
 
 class Rabble(Attack):
@@ -229,7 +254,7 @@ class Rabble(Attack):
 
         ]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         pass
 
 class RoyalSeal(Treasure):
@@ -251,7 +276,7 @@ class RoyalSeal(Treasure):
     def effect(self):
         self.game.add_callback('put_top', self.put_top, [self.game.active_player])
 
-    def preplay(self, payload):
+    def preplay(self, deck, payload):
         self.game.on_buy(lambda x: True, self.effect)
         return {}
 
@@ -293,8 +318,7 @@ class Vault(Action):
         deck.draw()
         return {'clear': True}
 
-    def play(self, payload):
-        deck = self.game.active_deck
+    def play(self, deck, payload):
 
         if 'cards' not in payload:
             return {'error': 'No cards to discard.'}
@@ -331,9 +355,8 @@ class Venture(Treasure):
             "reveal a Treasure. Discard the other cards. Play that Treasure."
         ]
 
-    def preplay(self, payload):
+    def preplay(self, deck, payload):
         revealed = []
-        deck = self.game.active_deck
         while True:
             c = deck.peek()
             if c is None:
@@ -367,7 +390,7 @@ class Goons(Militia):
     def effect(self):
         self.game.active_player.victory_tokens += 1
 
-    def preplay(self, payload):
+    def preplay(self, deck, payload):
         self.game.add_buys(1)
         self.game.add_money(2)
         self.game.on_buy(lambda x: True, self.effects)
@@ -393,7 +416,7 @@ class GrandMarket(Action):
         else:
             return {}
 
-    def play(self, payload):
+    def play(self, deck, payload):
         self.game.active_deck.draw()
         self.game.add_actions(1)
         self.game.add_buys(1)
@@ -418,7 +441,7 @@ class Hoard(Treasure):
     def effect(self):
         self.game.gain(self.game.active_deck, 'Gold')
 
-    def preplay(self, payload):
+    def preplay(self, deck, payload):
         self.game.on_buy(self.fits_criteria, self.effect)
         return {}
 
@@ -456,9 +479,7 @@ class Forge(Action):
             "cost exactly equal to the total cost in coins of the trashed cards."
         ]
 
-    def play(self, payload):
-        deck = self.game.active_deck
-
+    def play(self, deck, payload):
         if 'cards' not in payload:
             return {'error': 'No cards to trash.'}
         if not isinstance(payload['cards'], list):
@@ -526,7 +547,7 @@ class Peddler(Action):
             "you have in play, but not less than $0."
         ]
 
-    def play(self, payload):
+    def play(self, deck, payload):
         self.game.active_deck.draw()
         self.game.add_actions(1)
         self.game.add_money(1)

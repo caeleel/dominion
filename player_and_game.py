@@ -105,6 +105,7 @@ class Game(object):
 
         self.num_players = 0
         self.players = []
+        self.victories_gained = set()
         self.buy_callbacks = []
         self.callbacks = {}
         self.callbacks_queue = []
@@ -157,6 +158,7 @@ class Game(object):
         if self.num_players < 1:
             return False
         self.next_turn()
+        self.victories_gained = set()
         return True
 
     def finish_game(self):
@@ -253,6 +255,9 @@ class Game(object):
             'action': 'gain',
             'card': card_name,
         })
+
+        if card[0].is_victory():
+            self.victories_gained.add(card[0])
         self.cards[card_name] = (card[0], card[1] - 1)
         if card[1] == 1:
             self.empty_stacks += 1
@@ -367,6 +372,7 @@ class Game(object):
             'deck': deck,
             'supply': supply,
             'trash': trash,
+            'trade_route_tokens': len(self.victories_gained),
             'opponents': opponents,
             'state': self.state,
             'scores': self.scores,

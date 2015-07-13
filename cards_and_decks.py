@@ -12,10 +12,10 @@ class Card(object):
     def can_block(self):
         return False
 
-    def preplay(self, payload):
+    def preplay(self, deck, payload):
         pass
 
-    def play(self, payload):
+    def play(self, deck, payload):
         raise NotImplementedError
 
     def reacts_to(self):
@@ -90,8 +90,8 @@ class Treasure(Card):
     def is_playable(self):
         return True
 
-    def play(self, payload):
-        self.preplay(payload)
+    def play(self, deck, payload):
+        self.preplay(deck, payload)
         self.game.add_money(self.value())
         return {}
 
@@ -124,8 +124,8 @@ class Attack(Action):
         if not self.waiting_players:
             self.attack(self.to_attack)
 
-    def play(self, payload):
-        result = self.preplay(payload)
+    def play(self, deck, payload):
+        result = self.preplay(deck, payload)
         if 'error' in result:
             return result
 
@@ -354,7 +354,7 @@ class Deck(object):
             return {'error': 'Must play a treasure card'}
         self.tmp_zone.append(card)
         self.hand.remove(card)
-        result = card.play(payload)
+        result = card.play(self.game.active_deck, payload)
 
         if 'error' not in result:
             self.game.log.append({
@@ -380,7 +380,8 @@ class Deck(object):
                 self.shuffle()
                 self.hand.append(self.library.pop())
                 continue
-            break
+            return False
+        return True
 
     def value(self):
         return sum([x.value() for x in self.hand])
