@@ -15,7 +15,6 @@ class Cellar(Action):
     def play(self, payload):
         cards = []
         deck = self.game.active_deck
-        self.game.add_actions(1)
 
         if 'cards' not in payload:
             return {'error': 'No cards discarded'}
@@ -23,14 +22,19 @@ class Cellar(Action):
             return {'error': 'Cards must be list.'}
         for card in payload['cards']:
             if not isinstance(card, dict):
+                deck.hand += cards
                 return {'error': 'Invalid card'}
-            if card.get('name') not in deck.hand_names():
+            c = deck.find_card_in_hand(card)
+            if c is None:
+                deck.hand += cards
                 return {'error': '{0} not in hand'.format(card.get('name'))}
+            cards.append(c)
+            deck.hand.remove(c)
 
-        for card in payload['cards']:
-            deck.discard_hand(card)
-            deck.draw()
+        deck.discard += cards
+        deck.draw(len(payload['cards']))
 
+        self.game.add_actions(1)
         return {}
 
 class Chapel(Action):
@@ -41,6 +45,7 @@ class Chapel(Action):
         return ["Trash up to 4 cards from your hand."]
 
     def play(self, payload):
+        cards = []
         deck = self.game.active_deck
 
         if 'cards' not in payload:
@@ -52,13 +57,16 @@ class Chapel(Action):
 
         for card in payload['cards']:
             if not isinstance(card, dict):
+                deck.hand += cards
                 return {'error': 'Invalid card'}
-            if card.get('name') not in deck.hand_names():
+            c = deck.find_card_in_hand(card)
+            if c is None:
+                deck.hand += cards
                 return {'error': '{0} not in hand'.format(card.get('name'))}
+            cards.append(c)
+            deck.hand.remove(c)
 
-        for card in payload['cards']:
-            deck.trash_hand(card)
-
+        self.game.trash += cards
         return {}
 
 class Moat(Reaction):
@@ -256,16 +264,20 @@ class Militia(Attack):
         if len(deck.hand) - len(cards) != 3:
             return {'error': 'Must discard down to 3 cards'}
 
+        discarded = []
         for card in cards:
             if not isinstance(card, dict):
+                deck.hand += discarded
                 return {'error': 'Invalid card'}
             name = card.get('name')
-            if deck.find_card_in_hand(card) is None:
+            c = deck.find_card_in_hand(card)
+            if c is None:
+                deck.hand += discarded
                 return {'error': 'Card {0} not in hand'.format(name)}
+            deck.hand.remove(c)
+            discarded.append(c)
 
-        for card in cards:
-            c = deck.discard_hand(card)
-
+        deck.discard += discarded
         return {'clear': True}
 
     def attack(self, players):
@@ -288,12 +300,18 @@ class Moneylender(Action):
         return {}
 
 class Remodel(Action):
+    def __init__(self, game, n=2):
+        super(Remodel, self).__init__(game)
+        self.jump = n
+
     def cost(self):
         return 4
 
     def text(self):
-        return ["Trash a card from your hand. Gain a card costing up to $2 " + \
-                "more than the trashed card."]
+        return [
+            "Trash a card from your hand. Gain a card costing up " + \
+            "to ${0} more than the trashed card.".format(self.jump)
+        ]
 
     def play(self, payload):
         deck = self.game.active_deck
@@ -310,8 +328,8 @@ class Remodel(Action):
         c2 = self.game.card_from_name(gain.get('name'))
         if not c2:
             return {'error': 'No such card {0}'.format(gain.get('name'))}
-        if c1.cost() + 2 < c2.cost():
-            return {'error': 'Gained card must not cost $3 or more than trashed card'}
+        if c1.cost() + self.jump < c2.cost():
+            return {'error': 'Gained card must cost ${0} or less than trashed card'.format(self.jump)}
         if not self.game.gain(deck, gain['name']):
             return {'error': 'Could not gain {0}'.format(gain.get('name'))}
         deck.trash_hand(trash)
@@ -451,23 +469,36 @@ class Thief(Attack):
         self.game.add_callback('show_thieved', self.show_thieved, [self.game.active_player])
 
 class ThroneRoom(Action):
+    def __init__(self, game, n=1):
+        super(ThroneRoom, self).__init__(game)
+        self.repeat = n
+
     def cost(self):
         return 4
 
     def text(self):
-        return ["Choose an Action card in your hand. Play it twice."]
+        if self.repeat == 1:
+            adverb = "twice"
+        elif self.repeat == 2:
+            adverb = "three times"
+        return ["Choose an Action card in your hand. Play it {0}.".format(adverb)]
 
     def play_next(self, pid, payload):
         if pid != self.game.active_player.id:
             return {'error': 'Invalid player id'}
         result = self.c1.play(payload)
         if 'error' not in result:
-            result['clear'] = True
+            self.repeats -= 1
+            if self.repeats <= 0:
+                result['clear'] = True
         return result
 
     def play(self, payload):
         deck = self.game.active_deck
         card = payload.get('card')
+        if not card:
+            return {}
+
         payload1 = payload.get('payload', {})
 
         if not isinstance(card, dict):
@@ -487,6 +518,7 @@ class ThroneRoom(Action):
         deck.hand.remove(c1)
 
         self.c1 = c1.__class__(self.game)
+        self.repeats = self.repeat
 
         result = self.c1.play(payload1)
         if 'error' in result:

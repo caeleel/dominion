@@ -10,6 +10,7 @@ class Player(object):
         self.uuid = uuid.uuid4().hex
         self.deck = Deck(self, game)
         self.game = game
+        self.duration = []
         self.victory_tokens = 0
         self.start_turn()
 
@@ -35,6 +36,13 @@ class Player(object):
             return {'error': 'Not enough money to buy {0}'.format(name)}
         if not self.game.gain(self.deck, card.get('name')):
             return {'error': 'Could not buy card {0}'.format(name)}
+        result = c.on_buy()
+        if 'error' in result:
+            return result
+
+        for fits_criteria, effect in self.game.buy_callbacks:
+            if fits_criteria(c):
+                effect()
 
         self.game.log.append({
             'pid': self.id,
@@ -84,6 +92,7 @@ class Game(object):
 
         self.num_players = 0
         self.players = []
+        self.buy_callbacks = []
         self.callbacks = {}
         self.callbacks_queue = []
         self.active_player = None
@@ -150,6 +159,7 @@ class Game(object):
             self.active_player.finish_turn()
         self.active_player = self.players[self.active_player_index]
         self.active_deck = self.active_player.deck
+        self.buy_callbacks = []
         if self.is_last_round:
             self.finish_game()
             return {}
@@ -206,6 +216,9 @@ class Game(object):
             self.empty_stacks -= 1
         deck.hand.remove(card[0])
         return card[0]
+
+    def on_buy(self, fits_criteria, effect):
+        self.buy_callbacks.append(fits_criteria, effect)
 
     def gain(self, deck, card_name):
         if card_name not in self.cards:

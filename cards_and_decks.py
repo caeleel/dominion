@@ -42,6 +42,9 @@ class Card(object):
     def is_duration(self):
         return False
 
+    def on_buy(self):
+        return {}
+
     def cost(self):
         return 0
 
@@ -88,7 +91,7 @@ class Treasure(Card):
         return True
 
     def play(self, payload):
-        self.preplay()
+        self.preplay(payload)
         self.game.add_money(self.value())
         return {}
 
