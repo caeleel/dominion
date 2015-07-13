@@ -318,6 +318,9 @@ class Remodel(Action):
         trash = payload.get('trash')
         gain = payload.get('gain')
 
+        if len(deck.hand) == 0 and not trash and not gain:
+            return {}
+
         if not isinstance(trash, dict) or not isinstance(gain, dict):
             return {'error': 'Invalid trash or gain card'}
 
@@ -375,23 +378,17 @@ class Spy(Attack):
             self.game.players[pid].deck.discard_top()
         return {'clear': True}
 
-    def spy_cards(self, pid, payload):
-        if pid != self.game.active_player.id:
-            return {'error': 'Invalid pid'}
-
-        self.game.add_callback(
-            'choose_discard',
-            self.choose_discard,
-            [self.game.active_player]
-        )
-        return {'revealed': self.revealed}
-
     def attack(self, players):
         players.append(self.game.active_player)
         self.revealed = {}
         for player in players:
             self.revealed[player.id] = player.deck.peek().dict()
-        self.game.add_callback('spy_cards', self.spy_cards, [self.game.active_player])
+        self.game.log.append({
+            'pid': self.game.active_player.id,
+            'action': 'spy_cards',
+            'revealed': self.revealed,
+        })
+        self.game.add_callback('choose_discard', self.choose_discard, [self.game.active_player])
 
 class Thief(Attack):
     def cost(self):
@@ -446,16 +443,6 @@ class Thief(Attack):
             self.game.players[opp].deck.discard += cards
         return {'clear': True}
 
-    def show_thieved(self, pid, payload):
-        if pid != self.game.active_player.id:
-            return {'error': 'Invalid pid'}
-        revealed = {}
-        for k, v in self.revealed.iteritems():
-            revealed[k] = [x.dict() for x in v]
-        result = {'revealed': revealed}
-        self.game.add_callback('steal_cards', self.steal_cards, [self.game.active_player])
-        return result
-
     def attack(self, players):
         self.revealed = defaultdict(list)
         for player in players:
@@ -466,7 +453,17 @@ class Thief(Attack):
                 if c is not None:
                     self.revealed[pid].append(c)
                     deck.library.pop()
-        self.game.add_callback('show_thieved', self.show_thieved, [self.game.active_player])
+
+        revealed = {}
+        for k, v in self.revealed.iteritems():
+            revealed[k] = [x.dict() for x in v]
+
+        self.game.log.append({
+            'pid': self.game.active_player.id,
+            'action': 'show_thieved',
+            'revealed': revealed,
+        })
+        self.game.add_callback('steal_cards', self.steal_cards, [self.game.active_player])
 
 class ThroneRoom(Action):
     def __init__(self, game, n=1):

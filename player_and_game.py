@@ -1,5 +1,6 @@
 from cards_and_decks import *
 from base_set import *
+from prosperity import *
 import random
 import uuid
 import time
@@ -10,7 +11,7 @@ class Player(object):
         self.uuid = uuid.uuid4().hex
         self.deck = Deck(self, game)
         self.game = game
-        self.duration = []
+        self.durations = []
         self.victory_tokens = 0
         self.start_turn()
 
@@ -18,7 +19,7 @@ class Player(object):
         self.actions = 1
         self.buys = 1
         self.money = 0
-        for card in self.duration:
+        for card in self.durations:
             card.duration()
         self.duration = []
 
@@ -34,11 +35,8 @@ class Player(object):
             return {'error': 'No such card {0} to buy'.format(name)}
         if c.cost() > self.money:
             return {'error': 'Not enough money to buy {0}'.format(name)}
-        if not self.game.gain(self.deck, card.get('name')):
+        if not self.game.gain(self.deck, card.get('name'), True):
             return {'error': 'Could not buy card {0}'.format(name)}
-        result = c.on_buy()
-        if 'error' in result:
-            return result
 
         for fits_criteria, effect in self.game.buy_callbacks:
             if fits_criteria(c):
@@ -88,6 +86,21 @@ class Game(object):
             'Witch': (Witch(self), action_amount),
             'Woodcutter': (Woodcutter(self), action_amount),
             'Workshop': (Workshop(self), action_amount),
+            'Loan': (Loan(self), action_amount),
+            'Bishop': (Bishop(self), action_amount),
+            'Monument': (Monument(self), action_amount),
+            'WorkersVillage': (WorkersVillage(self), action_amount),
+            'RoyalSeal': (RoyalSeal(self), action_amount),
+            'Vault': (Vault(self), action_amount),
+            'Venture': (Venture(self), action_amount),
+            'Goons': (Goons(self), action_amount),
+            'GrandMarket': (GrandMarket(self), action_amount),
+            'Hoard': (Hoard(self), action_amount),
+            'Bank': (Bank(self), action_amount),
+            'Expand': (Expand(self), action_amount),
+            'Forge': (Forge(self), action_amount),
+            'KingsCourt': (KingsCourt(self), action_amount),
+            'Peddler': (Peddler(self), action_amount),
         }
 
         self.num_players = 0
@@ -116,7 +129,7 @@ class Game(object):
             tmp = self.stacks[i]
             self.stacks[i] = self.stacks[j]
             self.stacks[j] = tmp
-        for card in self.stacks[11:]:
+        for card in self.stacks[10:]:
             del self.cards[card]
 
     def card_from_name(self, name):
@@ -128,7 +141,11 @@ class Game(object):
     def opponents(self, pid=None):
         if not pid:
             pid = self.active_player_index
-        return [p for p in self.players if p.id != pid]
+
+        result = []
+        for x in xrange(pid + 1, pid + self.num_players):
+            result.append(self.players[x % self.num_players])
+        return result
 
     def add_player(self):
         player = Player(self, self.num_players)
@@ -220,12 +237,16 @@ class Game(object):
     def on_buy(self, fits_criteria, effect):
         self.buy_callbacks.append(fits_criteria, effect)
 
-    def gain(self, deck, card_name):
+    def gain(self, deck, card_name, bought=False):
         if card_name not in self.cards:
             return None
         card = self.cards[card_name]
         if card[1] <= 0:
             return None
+        if bought:
+            result = card[0].on_buy()
+            if 'error' in result:
+                return None
 
         self.log.append({
             'pid': deck.player.id,
@@ -236,6 +257,8 @@ class Game(object):
         if card[1] == 1:
             self.empty_stacks += 1
             if self.empty_stacks == 3 or card_name == 'Province':
+                self.last_round()
+            if card_name == 'Colony':
                 self.last_round()
 
         deck.discard.append(card[0])

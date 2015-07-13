@@ -240,7 +240,12 @@ class Client(cmd.Cmd):
                     print 'Chancellor requires 0 or 1 argument'
                     return None, None
                 return cmd, {'discard_deck': len(args) == 2}
-            elif cmd in ('Remodel', 'Mine'):
+            if cmd == 'Bishop':
+                if len(args) != 2:
+                    print 'Bishop requires exactly 1 argument'
+                    return None, None
+                return cmd, {'card': {'name': args[1]}}
+            elif cmd in ('Remodel', 'Mine', 'Expand'):
                 if len(args) != 3:
                     print '{0} requires exactly 2 arguments'.format(cmd)
                     return None, None
@@ -250,9 +255,19 @@ class Client(cmd.Cmd):
                     print '{0} requires exactly 1 argument'.format(cmd)
                     return None, None
                 return cmd, {'gain': {'name': args[1]}}
-            elif cmd == 'ThroneRoom':
+            elif cmd in ('ThroneRoom', 'KingsCourt'):
                 cmd2, payload = self.parse_cmd(args[1:])
                 return cmd, {'card': {'name': cmd2}, 'payload': payload}
+            elif cmd == 'Forge':
+                if len(args) < 2:
+                    print 'Forge requires at least 1 argument'
+                    payload = {
+                        'cards': [],
+                        'gain': {'name': args[1]},
+                    }
+                    for c in args[2:]:
+                        payload['cards'].append({'name': c})
+                    return cmd, payload
             else:
                 payload = {'cards': []}
                 for c in args[1:]:
@@ -354,6 +369,13 @@ class Client(cmd.Cmd):
             print 'spy arguments must be ints'
             return
         callback({'discard': pids})
+
+    def do_puttop(self, line):
+        """Respond to RoyalSeal"""
+        if not line or line == 'no':
+            callback({})
+        else:
+            callback({'put_top': True})
 
     def do_thief(self, line):
         """Finish thieving"""

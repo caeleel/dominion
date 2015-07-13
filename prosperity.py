@@ -10,14 +10,12 @@ class Loan(Treasure):
 
     def text(self):
         return [
-            "When you play this, reveal cards from your deck until you " + /
+            "When you play this, reveal cards from your deck until you " + \
             "reveal a Treasure. Discard or it trash it. Discard the other cards."
         ]
 
-    def discard_or_trash(self, payload):
-        if 'discard' not in payload:
-            return {'error': 'Parameter discard required'}
-        if payload['discard']:
+    def discard_or_trash(self, pid, payload):
+        if payload.get('discard'):
             self.game.active_deck.discard.append(self.revealed)
         else:
             self.game.active_deck.discard.append(self.revealed[:-1])
@@ -29,7 +27,7 @@ class Loan(Treasure):
         card = None
         self.revealed = []
         while True:
-            card = deck.library.peek()
+            card = deck.peek()
             if card is None:
                 break
             self.revealed.append(deck.library.pop())
@@ -240,11 +238,22 @@ class RoyalSeal(Treasure):
 
     def text(self):
         return [
-
+            "While this is in play, when you gain a card, you may put that " + \
+            "card on top of your deck."
         ]
 
-    def play(self, payload):
-        pass
+    def put_top(self, pid, payload):
+        if payload.get('put_top'):
+            deck = self.game.active_deck
+            deck.library.append(deck.discard.pop())
+        return {'clear': True}
+
+    def effect(self):
+        self.game.add_callback('put_top', self.put_top, [self.game.active_player])
+
+    def preplay(self, payload):
+        self.game.on_buy(lambda x: True, self.effect)
+        return {}
 
 class Vault(Action):
     def cost(self):
@@ -252,25 +261,98 @@ class Vault(Action):
 
     def text(self):
         return [
-
+            "+2 Cards",
+            "Discard any number of cards. +$1 per card discarded.  Each " + \
+            "other player may discard 2 cards. If he does, he draws a card.",
         ]
 
+    def cycle(self, pid, payload):
+        if 'cards' not in payload:
+            return {'error': 'Parameter cards is required.'}
+        if not isinstance(payload['cards'], list):
+            return {'error': 'Cards must be list.'}
+        if not payload['cards']:
+            return {'clear': True}
+        if len(payload['cards'] != 2):
+            return {'error': 'Must discard exactly 2 cards, or none.'}
+
+        deck = self.game.players[pid].deck
+        cards = []
+        for card in payload['cards']:
+            if not isinstance(card, dict):
+                deck.hand += cards
+                return {'error': 'Invalid card'}
+            c = deck.find_card_in_hand(card)
+            if c is None:
+                deck.hand += cards
+                return {'error': 'Card {0} not in hand'.format(card.get('name'))}
+            cards.append(c)
+            deck.hand.remove(c)
+
+        deck.discard += cards
+        deck.draw()
+        return {'clear': True}
+
     def play(self, payload):
-        pass
+        deck = self.game.active_deck
+
+        if 'cards' not in payload:
+            return {'error': 'No cards to discard.'}
+        if not isinstance(payload['cards'], list):
+            return {'error': 'Cards must be list.'}
+
+        cards = []
+        for card in payload['cards']:
+            if not isinstance(card, dict):
+                deck.hand += cards
+                return {'error': 'Invalid card'}
+            c = deck.find_card_in_hand(card)
+            if c is None:
+                deck.hand += cards
+                return {'error': 'Card {0} not in hand'.format(card.get('name'))}
+            cards.append(c)
+            deck.hand.remove(c)
+
+        deck.discard += cards
+        self.game.add_money(len(cards))
+        self.game.add_callback('cycle', self.cycle, self.game.opponents())
+        return {}
 
 class Venture(Treasure):
     def cost(self):
         return 5
 
+    def value(self):
+        return 1
+
     def text(self):
         return [
-
+            "When you play this, reveal cards from your deck until you " + \
+            "reveal a Treasure. Discard the other cards. Play that Treasure."
         ]
 
-    def play(self, payload):
-        pass
+    def preplay(self, payload):
+        revealed = []
+        deck = self.game.active_deck
+        while True:
+            c = deck.peek()
+            if c is None:
+                break
+            deck.library.pop()
+            if c.is_treasure():
+                deck.tmp_zone.append(c)
+                self.game.log.append({
+                    'pid': self.game.active_player.id,
+                    'action': 'venture',
+                    'played': c.dict(),
+                })
+                c.play({})
+                break
+            revealed.append(c)
+        deck.discard += revealed
+        return {}
 
-class Goons(Attack):
+class Goons(Militia):
     def cost(self):
         return 6
 
@@ -282,8 +364,14 @@ class Goons(Attack):
             "While this is in play, when you buy a card, +1 VP token.",
         ]
 
-    def play(self, payload):
-        pass
+    def effect(self):
+        self.game.active_player.victory_tokens += 1
+
+    def preplay(self, payload):
+        self.game.add_buys(1)
+        self.game.add_money(2)
+        self.game.on_buy(lambda x: True, self.effects)
+        return {}
 
 class GrandMarket(Action):
     def cost(self):
@@ -295,7 +383,7 @@ class GrandMarket(Action):
             "+1 Action",
             "+1 Buy",
             "+$2",
-            "You can’t buy this if you have any Copper in play.",
+            "You can't buy this if you have any Copper in play.",
         ]
 
     def on_buy(self):
@@ -341,11 +429,13 @@ class Bank(Treasure):
     def value(self):
         deck = self.game.active_deck
         val = 0
+        if not deck:
+            return val
         return len([x for x in deck.tmp_zone if x.is_treasure()])
 
     def text(self):
         return [
-            "When you play this, it’s worth $1 per Treasure card you " + \
+            "When you play this, it's worth $1 per Treasure card you " + \
             "have in play (counting this)."
         ]
 
@@ -420,6 +510,8 @@ class Peddler(Action):
     def cost(self):
         cost = 8
         deck = self.game.active_deck
+        if not deck:
+            return cost
         for card in deck.tmp_zone:
             if card.is_action():
                 cost -= 2
