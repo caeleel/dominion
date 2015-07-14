@@ -14,10 +14,7 @@ class Cellar(Action):
 
     def play(self, payload):
         cards = []
-
-        if 'cards' not in payload:
-            return {'error': 'No cards discarded'}
-        if not isinstance(payload['cards'], list):
+        if not isinstance(payload.get('cards'), list):
             return {'error': 'Cards must be list.'}
         for card in payload['cards']:
             if not isinstance(card, dict):
@@ -45,10 +42,7 @@ class Chapel(Action):
 
     def play(self, payload):
         cards = []
-
-        if 'cards' not in payload:
-            return {'error': 'No cards to trash.'}
-        if not isinstance(payload['cards'], list):
+        if not isinstance(payload.get('cards'), list):
             return {'error': 'Cards must be list.'}
         if len(payload['cards']) > 4:
             return {'error': 'Cannot trash more than 4 cards.'}
@@ -216,8 +210,6 @@ class Feast(Action):
 
     def play(self, payload):
         gain = payload.get('gain')
-        if not gain:
-            return {'error': 'No card to gain specified'}
         if not isinstance(gain, dict):
             return {'error': 'Invalid gain card'}
         if not self.game.gain(self.deck, gain['name']):
@@ -361,7 +353,7 @@ class Spy(Attack):
         return {}
 
     def choose_discard(self, pid, payload):
-        if 'discard' not in payload or not isinstance(payload['discard'], list):
+        if not isinstance(payload.get('discard'), list):
             return {'error': 'Parameter discard must be a list of pids'}
         for pid in payload['discard']:
             if pid not in self.revealed:
@@ -395,9 +387,7 @@ class Thief(Attack):
         ]
 
     def steal_cards(self, pid, payload):
-        if 'to_trash' not in payload:
-            return {'error': 'Param to_trash is required.'}
-        to_trash = payload['to_trash']
+        to_trash = payload.get('to_trash')
         if not isinstance(to_trash, dict):
             return {'error': 'Param to_trash must be dict.'}
 
