@@ -90,7 +90,7 @@ class Watchtower(Reaction):
     def register_reaction(self, pid, card):
         self.gained = card
         self.game.queue_callback(
-            'watchtower:{0}'.format(card.__class__.__name__),
+            'watchtower:{0}'.format(card.name()),
             self.react,
             [self.game.players[pid]]
         )
@@ -191,7 +191,7 @@ class Talisman(Treasure):
         ]
 
     def effect(self, card):
-        self.game.gain(self.deck, card.__class__.__name__)
+        self.game.gain(self.deck, card.name())
 
     def preplay(self, payload):
         self.game.on_buy(
@@ -254,10 +254,20 @@ class Contraband(Treasure):
         ]
 
     def name_contraband(self, pid, payload):
-        pass
+        card = payload.get('card')
+        if not isinstance(card, dict):
+            return {'error': 'Invalid card chosen.'}
+        if not self.game.active_player.add_contraband(card):
+            return {'error': 'No such card {0}'.format(card.get('name'))}
+        return {'clear': True}
 
     def play(self, payload):
-        pass
+        self.game.add_callback(
+            'name_contraband',
+            self.name_contraband,
+            self.game.opponents()[0:1]
+        )
+        return
 
 class CountingHouse(Action):
     def cost(self):
@@ -265,11 +275,23 @@ class CountingHouse(Action):
 
     def text(self):
         return [
-
+            "Look through your discard pile, reveal any number of Copper " + \
+            "cards from it, and put them into your hand."
         ]
 
     def play(self, payload):
-        pass
+        if 'count' not in payload:
+            return {'error': 'Parameter count required.'}
+        count = payload['count']
+        if not isinstance(count, int):
+            return {'error': 'Parameter count must be an int.'}
+        coppers = [x for x in self.deck.discard if x.name() == 'Copper']
+        if len(coppers) < count:
+            return {'error': 'You do not have that many coppers in your discard.'}
+        for i in xrange(count):
+            self.deck.hand.append(coppers[i])
+            self.deck.discard.remove(coppers[i])
+        return {}
 
 class Mint(Action):
     def cost(self):
@@ -277,11 +299,25 @@ class Mint(Action):
 
     def text(self):
         return [
-
+            "You may reveal a Treasure card from your hand. Gain a copy of " + \
+            "it. When you buy this, trash all Treasures you have in play."
         ]
 
+    def on_buy(self):
+        for card in self.deck.tmp_zone:
+            if card.is_treasure():
+                self.game.trash.append(card)
+                self.deck.tmp_zone.remove(card)
+        return {}
+
     def play(self, payload):
-        pass
+        card = payload.get('card')
+        if not isinstance(card, dict):
+            return {'error': 'Invalid card chosen.'}
+        if self.deck.find_card_in_hand(card) is None:
+            return {'error': 'Card {0} not in hand.'.format(card.get('name'))}
+        self.game.gain(self.deck, card.get('name'))
+        return {}
 
 class Mountebank(Attack):
     def cost(self):
@@ -289,11 +325,28 @@ class Mountebank(Attack):
 
     def text(self):
         return [
-
+            "+$2",
+            "Each other player may discard a Curse. If he doesn't, he " + \
+            "gains a Curse and a Copper.",
         ]
 
-    def play(self, payload):
-        pass
+    def preplay(self, payload):
+        self.game.add_buys(2)
+        return {}
+
+    def discard_curse(self, pid, payload):
+        deck = self.game.players[pid].deck
+        if payload.get('discard'):
+            c = deck.discard_hand({'name': 'Curse'})
+            if c is None:
+                return {'error': 'No Curse to discard.'}
+        else:
+            self.game.gain(deck, 'Curse')
+            self.game.gain(deck, 'Copper')
+        return {'clear': True}
+
+    def attack(self, players):
+        self.game.add_callback("discard_curse", self.discard_curse, players)
 
 class Rabble(Attack):
     def cost(self):
@@ -301,11 +354,61 @@ class Rabble(Attack):
 
     def text(self):
         return [
-
+            "+3 Cards",
+            "Each other player reveals the top 3 cards of his deck, " + \
+            "discards the revealed Actions and Treasures, and puts the " + \
+            "rest back on top in any order he chooses.",
         ]
 
-    def play(self, payload):
-        pass
+    def preplay(self):
+        self.deck.draw(3)
+        return {}
+
+    def choose_order(self, pid, payload):
+        if not isinstance(payload.get('cards'), list):
+            return {'error': 'Cards must be list.'}
+
+        cards = []
+        revealed = self.revealed[pid]
+        for card in payload['cards']:
+            if not isinstance(card, dict):
+                revealed += cards
+                return {'error': 'Invalid card.'}
+            matching = [x.name() for x in revealed]
+            if not matching:
+                revealed += cards
+                return {'error': 'Card not in revealed cards.'}
+            cards.append(matching[0])
+            revealed.remove(matching[0])
+
+        self.game.players[pid].deck.library += cards
+        return {'clear': True}
+
+    def attack(self, players):
+        self.revealed = {}
+        for player in players:
+            deck = player.deck
+            cards = []
+            for i in xrange(3):
+                c = deck.peek()
+                if c is None:
+                    break
+                cards.append(deck.library.pop())
+
+            discarded = []
+            for card in cards:
+                if card.is_treasure() or card.is_action():
+                    discarded.append(card)
+                    cards.remove(card)
+            deck.discard += discarded
+            self.revealed[player.id] = cards
+            self.game.log.append({
+                'pid': player.id,
+                'action': 'reveal_top_3',
+                'revealed': [x.dict() for x in cards],
+                'discarded': [x.dict() for x in discarded],
+            })
+        self.game.add_callback('choose_order', self.choose_order, players)
 
 class RoyalSeal(Treasure):
     def cost(self):
@@ -345,9 +448,7 @@ class Vault(Action):
         ]
 
     def cycle(self, pid, payload):
-        if 'cards' not in payload:
-            return {'error': 'Parameter cards is required.'}
-        if not isinstance(payload['cards'], list):
+        if not isinstance(payload.get('cards'), list):
             return {'error': 'Cards must be list.'}
         if not payload['cards']:
             return {'clear': True}
@@ -372,9 +473,7 @@ class Vault(Action):
         return {'clear': True}
 
     def play(self, payload):
-        if 'cards' not in payload:
-            return {'error': 'No cards to discard.'}
-        if not isinstance(payload['cards'], list):
+        if not isinstance(payload.get('cards'), list):
             return {'error': 'Cards must be list.'}
 
         cards = []

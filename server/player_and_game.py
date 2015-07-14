@@ -31,13 +31,16 @@ class Player(object):
         self.deck.redraw()
 
     def add_contraband(self, card):
+        if not card_from_name(card.get('name')):
+            return False
         self.contraband.add(card.get('name'))
+        return True
 
     def buy(self, card):
         if self.buys < 1:
             return {'error': 'No remaining buys.'}
         name = card.get('name')
-        if name in contraband:
+        if name in self.contraband:
             return {'error': 'That item is contraband.'}
         c = self.game.card_from_name(name)
         if not c:
@@ -62,16 +65,20 @@ class Player(object):
         return {}
 
 class Game(object):
-    def __init__(self):
+    def __init__(self, sets=['base_set', 'prosperity']):
         action_amount = 10
+
         self.cards = {
             'Copper': (Copper(self), 60),
             'Silver': (Silver(self), 40),
             'Gold': (Gold(self), 30),
             'Estate': (Estate(self), 24),
             'Duchy': (Duchy(self), 12),
-            'Province': (Province(self), 12),
-            'Curse': (Curse(self), 30),
+            'Province': (Province(self), 8),
+            'Curse': (Curse(self), 10),
+        }
+
+        base_set = {
             'Adventurer': (Adventurer(self), action_amount),
             'Bureaucrat': (Bureaucrat(self), action_amount),
             'Cellar': (Cellar(self), action_amount),
@@ -96,12 +103,23 @@ class Game(object):
             'Witch': (Witch(self), action_amount),
             'Woodcutter': (Woodcutter(self), action_amount),
             'Workshop': (Workshop(self), action_amount),
+        }
+
+        prosperity = {
             'Loan': (Loan(self), action_amount),
             'TradeRoute': (TradeRoute(self), action_amount),
             'Watchtower': (Watchtower(self), action_amount),
             'Bishop': (Bishop(self), action_amount),
             'Monument': (Monument(self), action_amount),
+            'Quarry': (Quarry(self), action_amount),
+            'Talisman': (Talisman(self), action_amount),
             'WorkersVillage': (WorkersVillage(self), action_amount),
+            'City': (City(self), action_amount),
+            'Contraband': (Contraband(self), action_amount),
+            'CountingHouse': (CountingHouse(self), action_amount),
+            'Mint': (Mint(self), action_amount),
+            'Mountebank': (Mountebank(self), action_amount),
+            'Rabble': (Rabble(self), action_amount),
             'RoyalSeal': (RoyalSeal(self), action_amount),
             'Vault': (Vault(self), action_amount),
             'Venture': (Venture(self), action_amount),
@@ -114,6 +132,11 @@ class Game(object):
             'KingsCourt': (KingsCourt(self), action_amount),
             'Peddler': (Peddler(self), action_amount),
         }
+
+        if 'base_set' in sets:
+            self.cards.update(base_set)
+        if 'prosperity' in sets:
+            self.cards.update(prosperity)
 
         self.num_players = 0
         self.players = []
@@ -145,6 +168,9 @@ class Game(object):
             self.stacks[j] = tmp
         for card in self.stacks[10:]:
             del self.cards[card]
+        if self.stacks[0] in prosperity:
+            self.cards['Colony'] = (Colony(self), 8)
+            self.cards['Platinum'] = (Platinum(self), 12)
 
     def card_from_name(self, name):
         if name in self.cards:
@@ -165,6 +191,13 @@ class Game(object):
         player = Player(self, self.num_players)
         self.players.append(player)
         self.num_players += 1
+        if self.num_players == 3:
+            self.cards['Province'] = (Province(self), 12)
+            if 'Colony' in self.cards:
+                self.cards['Colony'] = (Colony(self), 12)
+        if self.num_players > 2:
+            curses = self.cards['Curse']
+            self.cards['Curse'] = (curses[0], curses[1] + 10)
         return (player.id, player.uuid)
 
     def start_game(self):
@@ -249,7 +282,7 @@ class Game(object):
             self.empty_stacks -= 1
 
         for x in deck.hand:
-            if x.__class__.__name__ == card_name:
+            if x.name() == card_name:
                 deck.hand.remove(x)
                 break
         return card[0]
@@ -280,7 +313,7 @@ class Game(object):
             'card': card_name,
         })
 
-        for fits_criteria, effect in self.game.gain_callbacks:
+        for fits_criteria, effect in self.gain_callbacks:
             if fits_criteria(new_card):
                 effect(new_card)
         for c in deck.hand:

@@ -405,7 +405,7 @@ class Thief(Attack):
         for k, v in self.revealed.iteritems():
             names[k] = {}
             for card in v:
-                names[k][card.__class__.__name__] = card
+                names[k][card.name()] = card
         for opp, trash in to_trash.iteritems():
             try:
                 opp = int(opp)

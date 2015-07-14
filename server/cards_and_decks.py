@@ -9,6 +9,9 @@ class Card(object):
         self.deck = None
         self.uuid = uuid.uuid4().hex
 
+    def name(self):
+        return self.__class__.__name__
+
     def set_deck(self, deck):
         self.deck = deck
 
@@ -91,7 +94,7 @@ class Card(object):
             type = "Action - Duration"
 
         return {
-            'name': self.__class__.__name__,
+            'name': self.name(),
             'value': self.value(),
             'cost': self.cost(),
             'points': self.points(),
@@ -251,7 +254,7 @@ class Deck(object):
         }
 
     def hand_names(self):
-        return [card.__class__.__name__ for card in self.hand]
+        return [card.name() for card in self.hand]
 
     def redraw(self):
         self.discard += self.hand
@@ -265,19 +268,19 @@ class Deck(object):
 
     def find_card_in_hand(self, card):
         for c in self.hand:
-            if c.__class__.__name__ == card.get('name'):
+            if c.name() == card.get('name'):
                 return c
         return None
 
     def find_card_in_discard(self, card):
         for c in self.discard:
-            if c.__class__.__name__ == card.get('name'):
+            if c.name() == card.get('name'):
                 return c
         return None
 
     def find_card_in_tmp_zone(self, card):
         for c in self.tmp_zone:
-            if c.__class__.__name__ == card.get('name'):
+            if c.name() == card.get('name'):
                 return c
         return None
 
@@ -377,7 +380,7 @@ class Deck(object):
             self.game.log.append({
                 'pid': self.game.active_player.id,
                 'action': 'play',
-                'card': card.__class__.__name__,
+                'card': card.name(),
                 'payload': payload,
                 'result': result,
             })
