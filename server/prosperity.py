@@ -187,7 +187,7 @@ class Talisman(Treasure):
     def text(self):
         return [
             "While this is in play, when you buy a card costing $4 or " + \
-            "less that is not a Victory card, gain a copy of it.""
+            "less that is not a Victory card, gain a copy of it."
         ]
 
     def effect(self, card):
@@ -250,7 +250,7 @@ class Contraband(Treasure):
         return [
             "+1 Buy",
             "When you play this, the player to your left names a card. " + \
-            "You can’t buy that card this turn.",
+            "You can't buy that card this turn.",
         ]
 
     def name_contraband(self, pid, payload):
