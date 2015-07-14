@@ -288,10 +288,10 @@ class Game(object):
         return card[0]
 
     def on_buy(self, fits_criteria, effect):
-        self.buy_callbacks.append(fits_criteria, effect)
+        self.buy_callbacks.append((fits_criteria, effect))
 
     def on_gain(self, fits_criteria, effect):
-        self.gain_callbacks.append(fits_criteria, effect)
+        self.gain_callbacks.append((fits_criteria, effect))
 
     def gain(self, deck, card_name, bought=False):
         if card_name not in self.cards:
