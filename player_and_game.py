@@ -12,6 +12,8 @@ class Player(object):
         self.deck = Deck(self, game)
         self.game = game
         self.durations = []
+        self.discounts = []
+        self.contraband = set()
         self.victory_tokens = 0
         self.start_turn()
 
@@ -24,23 +26,31 @@ class Player(object):
         self.duration = []
 
     def finish_turn(self):
+        self.discounts = []
+        self.contraband = set()
         self.deck.redraw()
+
+    def add_contraband(self, card):
+        self.contraband.add(card.get('name'))
 
     def buy(self, card):
         if self.buys < 1:
-            return {'error': 'No remaining buys'}
+            return {'error': 'No remaining buys.'}
         name = card.get('name')
+        if name in contraband:
+            return {'error': 'That item is contraband.'}
         c = self.game.card_from_name(name)
         if not c:
-            return {'error': 'No such card {0} to buy'.format(name)}
-        if c.cost() > self.money:
-            return {'error': 'Not enough money to buy {0}'.format(name)}
+            return {'error': 'No such card {0} to buy.'.format(name)}
+        cost = c.effective_cost(self)
+        if cost > self.money:
+            return {'error': 'Not enough money to buy {0}.'.format(name)}
         if not self.game.gain(self.deck, card.get('name'), True):
-            return {'error': 'Could not buy card {0}'.format(name)}
+            return {'error': 'Could not buy card {0}.'.format(name)}
 
         for fits_criteria, effect in self.game.buy_callbacks:
             if fits_criteria(c):
-                effect()
+                effect(c)
 
         self.game.log.append({
             'pid': self.id,
@@ -48,7 +58,7 @@ class Player(object):
             'card': name,
         })
         self.buys -= 1
-        self.money -= c.cost()
+        self.money -= cost
         return {}
 
 class Game(object):
@@ -109,6 +119,7 @@ class Game(object):
         self.players = []
         self.victories_gained = set()
         self.buy_callbacks = []
+        self.gain_callbacks = []
         self.callbacks = {}
         self.callbacks_queue = []
         self.active_player = None
@@ -181,6 +192,7 @@ class Game(object):
         self.active_player = self.players[self.active_player_index]
         self.active_deck = self.active_player.deck
         self.buy_callbacks = []
+        self.gain_callbacks = []
         if self.is_last_round:
             self.finish_game()
             return {}
@@ -226,20 +238,27 @@ class Game(object):
     def last_round(self):
         self.is_last_round = True
 
-    def ungain(self, deck, c):
+    def ungain(self, deck, card):
         if not deck.find_card_in_hand(c):
             return None
 
-        card_name = card.get('name')
+        card_name = c.get('name')
         card = self.cards[card_name]
         self.cards[card_name] = (card[0], card[1] + 1)
         if card[1] == 0:
             self.empty_stacks -= 1
-        deck.hand.remove(card[0])
+
+        for x in deck.hand:
+            if x.__class__.__name__ == card_name:
+                deck.hand.remove(x)
+                break
         return card[0]
 
     def on_buy(self, fits_criteria, effect):
         self.buy_callbacks.append(fits_criteria, effect)
+
+    def on_gain(self, fits_criteria, effect):
+        self.gain_callbacks.append(fits_criteria, effect)
 
     def gain(self, deck, card_name, bought=False):
         if card_name not in self.cards:
@@ -261,11 +280,15 @@ class Game(object):
             'card': card_name,
         })
 
+        for fits_criteria, effect in self.game.gain_callbacks:
+            if fits_criteria(new_card):
+                effect(new_card)
         for c in deck.hand:
             if 'gain' in c.reacts_to():
                 c.register_reaction(deck.player.id, new_card)
         if new_card.is_victory():
             self.victories_gained.add(card[0])
+
         self.cards[card_name] = (card[0], card[1] - 1)
         if card[1] == 1:
             self.empty_stacks += 1

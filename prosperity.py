@@ -78,14 +78,13 @@ class Watchtower(Reaction):
     def react(self, pid, payload):
         deck = self.game.players[pid].deck
 
-        for c in deck.discard:
-            if c == self.gained:
-                if payload.get('trash'):
-                    self.game.trash.append(c)
-                    deck.discard.remove(c)
-                elif payload.get('put_top'):
-                    deck.library.append(c)
-                    deck.discard.remove(c)
+        if self.gained in deck.discard:
+            if payload.get('trash'):
+                self.game.trash.append(c)
+                deck.discard.remove(c)
+            elif payload.get('put_top'):
+                deck.library.append(c)
+                deck.discard.remove(c)
         return {'clear': True}
 
     def register_reaction(self, pid, card):
@@ -168,11 +167,18 @@ class Quarry(Treasure):
 
     def text(self):
         return [
-
+            "While this is in play, Action cards cost $2 less, but " + \
+            "not less than $0."
         ]
 
-    def play(self, payload):
-        pass
+    def discount(self, card, cost):
+        if card.is_action():
+            cost -= 2
+        return max(cost, 0)
+
+    def preplay(self, payload):
+        self.deck.player.discounts.append(self.discount)
+        return {}
 
 class Talisman(Treasure):
     def cost(self):
@@ -180,11 +186,19 @@ class Talisman(Treasure):
 
     def text(self):
         return [
-
+            "While this is in play, when you buy a card costing $4 or " + \
+            "less that is not a Victory card, gain a copy of it.""
         ]
 
-    def play(self, payload):
-        pass
+    def effect(self, card):
+        self.game.gain(self.deck, card.__class__.__name__)
+
+    def preplay(self, payload):
+        self.game.on_buy(
+            lambda x: x.effective_cost(self.deck.player) <= 4 and not x.is_victory(),
+            self.effect
+        )
+        return {}
 
 class WorkersVillage(Action):
     def cost(self):
@@ -209,20 +223,38 @@ class City(Action):
 
     def text(self):
         return [
-
+            "+1 Card",
+            "+2 Actions",
+            "If there are one or more empty Supply piles, +1 Card. " + \
+            "If there are two or more, +$1 and +1 Buy."
         ]
 
     def play(self, payload):
-        pass
+        self.deck.draw()
+        self.game.add_actions(2)
+        if self.game.empty_stacks >= 1:
+            self.deck.draw()
+        if self.game.empty_stacks >= 2:
+            self.game.add_money(1)
+            self.game.add_buys(1)
+        return {}
 
 class Contraband(Treasure):
     def cost(self):
         return 5
 
+    def value(self):
+        return 3
+
     def text(self):
         return [
-
+            "+1 Buy",
+            "When you play this, the player to your left names a card. " + \
+            "You can’t buy that card this turn.",
         ]
+
+    def name_contraband(self, pid, payload):
+        pass
 
     def play(self, payload):
         pass
@@ -288,14 +320,17 @@ class RoyalSeal(Treasure):
     def put_top(self, pid, payload):
         if payload.get('put_top'):
             deck = self.game.players[pid].deck
-            deck.library.append(deck.discard.pop())
+            if self.bought in deck.discard:
+                deck.library.append(self.bought)
+                deck.discard.remove(self.bought)
         return {'clear': True}
 
-    def effect(self):
+    def effect(self, card):
+        self.bought = card
         self.game.add_callback('put_top', self.put_top, [self.game.active_player])
 
     def preplay(self, payload):
-        self.game.on_buy(lambda x: True, self.effect)
+        self.game.on_gain(lambda x: True, self.effect)
         return {}
 
 class Vault(Action):
@@ -337,7 +372,6 @@ class Vault(Action):
         return {'clear': True}
 
     def play(self, payload):
-
         if 'cards' not in payload:
             return {'error': 'No cards to discard.'}
         if not isinstance(payload['cards'], list):
@@ -453,14 +487,11 @@ class Hoard(Treasure):
             "While this is in play, when you buy a Victory card, gain a Gold."
         ]
 
-    def fits_criteria(self, card):
-        return card.is_victory()
-
     def effect(self):
         self.game.gain(self.deck, 'Gold')
 
     def preplay(self, payload):
-        self.game.on_buy(self.fits_criteria, self.effect)
+        self.game.on_buy(lambda x: x.is_victory(), self.effect)
         return {}
 
 class Bank(Treasure):

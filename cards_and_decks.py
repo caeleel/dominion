@@ -54,6 +54,14 @@ class Card(object):
     def cost(self):
         return 0
 
+    def effective_cost(self, player=None):
+        cost = self.cost()
+        if not player:
+            return cost
+        for discount in player.discounts:
+            cost = discount(self, cost)
+        return cost
+
     def points(self):
         return 0
 
@@ -73,6 +81,8 @@ class Card(object):
             type = "Treasure"
         elif self.is_victory():
             type = "Victory"
+            if self.is_action():
+                type = "Action - Victory"
         elif self.is_action():
             type = "Action"
         elif self.is_curse():

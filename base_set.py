@@ -361,8 +361,6 @@ class Spy(Attack):
         return {}
 
     def choose_discard(self, pid, payload):
-        if pid != self.game.active_player.id:
-            return {'error': 'Invalid pid'}
         if 'discard' not in payload or not isinstance(payload['discard'], list):
             return {'error': 'Parameter discard must be a list of pids'}
         for pid in payload['discard']:
@@ -397,8 +395,6 @@ class Thief(Attack):
         ]
 
     def steal_cards(self, pid, payload):
-        if pid != self.game.active_player.id:
-            return {'error': 'You are not the active player.'}
         if 'to_trash' not in payload:
             return {'error': 'Param to_trash is required.'}
         to_trash = payload['to_trash']
@@ -475,8 +471,6 @@ class ThroneRoom(Action):
         return ["Choose an Action card in your hand. Play it {0}.".format(adverb)]
 
     def play_next(self, pid, payload):
-        if pid != self.game.active_player.id:
-            return {'error': 'Invalid player id'}
         result = self.c1.play(payload)
         if 'error' not in result:
             self.repeats -= 1
