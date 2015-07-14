@@ -212,7 +212,7 @@ class Game(object):
         for player in self.players:
             self.active_player = player
             self.active_deck = player.deck
-            self.scores[player.id] = player.deck.score()
+            self.scores[player.id] = player.deck.score() + player.victory_tokens
 
     def next_turn(self):
         self.log.append({

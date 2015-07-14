@@ -237,12 +237,21 @@ class Client(cmd.Cmd):
             cmd = args[0]
             if cmd == 'Chancellor':
                 if len(args) > 2:
-                    print 'Chancellor requires 0 or 1 argument'
+                    print '{0} requires 0 or 1 argument'.format(cmd)
                     return None, None
                 return cmd, {'discard_deck': len(args) == 2}
-            if cmd == 'Bishop':
+            elif cmd == 'CountingHouse':
+                if len(args) > 2:
+                    print '{0} requires exactly 1 argument'.format(cmd)
+                    return None, None
+                try:
+                    count = int(args[1])
+                except ValueError:
+                    print '{0} requires an integer argument'.format(cmd)
+                return cmd, {'count': count}
+            elif cmd in ('Bishop', 'TradeRoute', 'Mint'):
                 if len(args) != 2:
-                    print 'Bishop requires exactly 1 argument'
+                    print '{0} requires exactly 1 argument'.format(cmd)
                     return None, None
                 return cmd, {'card': {'name': args[1]}}
             elif cmd in ('Remodel', 'Mine', 'Expand'):
@@ -398,6 +407,15 @@ class Client(cmd.Cmd):
             to_trash[cmd[0]] = {'name': cmd[2], 'keep': cmd[1] == 'keep'}
 
         callback({'to_trash': to_trash})
+
+    def do_watchtower(self, line):
+        """Respond to watchtower callback"""
+        response = {}
+        if line == 'trash':
+            response = {'trash': True}
+        elif line == 'top':
+            response = {'put_top': True}
+        callback(response)
 
     def do_library(self, line):
         """Respond to library callback"""

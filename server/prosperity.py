@@ -57,7 +57,7 @@ class TradeRoute(Reaction):
         ]
 
     def play(self, payload):
-        card = payload.get('trash')
+        card = payload.get('card')
         if not isinstance(card, dict):
             return {'error': 'Invalid trash card.'}
         c = self.deck.trash_hand(card)
@@ -165,6 +165,9 @@ class Quarry(Treasure):
     def cost(self):
         return 4
 
+    def value(self):
+        return 1
+
     def text(self):
         return [
             "While this is in play, Action cards cost $2 less, but " + \
@@ -183,6 +186,9 @@ class Quarry(Treasure):
 class Talisman(Treasure):
     def cost(self):
         return 4
+
+    def value(self):
+        return 1
 
     def text(self):
         return [
@@ -413,6 +419,9 @@ class Rabble(Attack):
 class RoyalSeal(Treasure):
     def cost(self):
         return 5
+
+    def value(self):
+        return 2
 
     def text(self):
         return [
