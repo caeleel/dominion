@@ -28,3 +28,18 @@ body {
   float: left;
   width: 30%;
 }
+
+#create-game input[type=text] {
+    font-size: 1.2em;
+    padding: 0.25em;
+    margin: 0.25em 0;
+}
+
+#create-game input[type=submit] {
+  border-radius: 0.5em;
+  background: #750000;
+  border: none;
+  padding: 1em;
+  color: #fff;
+  margin-top: 1em;
+}
