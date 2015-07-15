@@ -202,6 +202,14 @@ def next_phase(game):
 def list_games():
     return {'games': [x.dict() for x in game_map.values()]}
 
+@app.route('/stat/<game>', methods=['GET'])
+@json_response
+def stat_game(game):
+    pid, game_manager = validate_player(game)
+    if game_manager is None:
+        return {'error': 'Invalid game / pid / uuid'}
+    return {'state': game_manager.game.dict(pid)}
+
 @app.route('/poll/<game>', methods=['GET'])
 @json_response
 def poll_game(game):

@@ -80,11 +80,11 @@ class Watchtower(Reaction):
 
         if self.gained in deck.discard:
             if payload.get('trash'):
-                self.game.trash.append(c)
-                deck.discard.remove(c)
+                self.game.trash.append(self.gained)
+                deck.discard.remove(self.gained)
             elif payload.get('put_top'):
-                deck.library.append(c)
-                deck.discard.remove(c)
+                deck.library.append(self.gained)
+                deck.discard.remove(self.gained)
         return {'clear': True}
 
     def register_reaction(self, pid, card):
@@ -133,7 +133,7 @@ class Bishop(Action):
             return {'error': 'Card {0} not found in hand'.format(card.get('name'))}
         if gain_vp:
             self.game.players[pid].victory_tokens += c.cost() / 2
-        return {}
+        return {'clear': True}
 
     def play(self, payload):
         result = self.maybe_trash(self.deck.player.id, payload, True)
@@ -273,7 +273,7 @@ class Contraband(Treasure):
             self.name_contraband,
             self.game.opponents()[0:1]
         )
-        return
+        return {}
 
 class CountingHouse(Action):
     def cost(self):
