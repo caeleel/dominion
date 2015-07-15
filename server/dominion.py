@@ -1,14 +1,16 @@
-from flask import Flask, Response, request
+from flask import Flask, Response, request, send_from_directory
 from functools import wraps
 from player_and_game import *
 import uuid
 import time
 import json
+import os
 
 app = Flask(__name__)
 game_map = {}
 POLL_INTERVAL = 2
 shutting_down = False
+client_dir = os.path.join(os.path.dirname(os.getcwd()), 'client')
 
 def json_response(f):
     @wraps(f)
@@ -18,7 +20,7 @@ def json_response(f):
     return decorated_function
 
 class GameManager(object):
-    def __init__(self):
+    def __init__(self, title):
         global game_map
 
         self.uuid = uuid.uuid4().hex
@@ -27,9 +29,11 @@ class GameManager(object):
         self.game = Game()
         self.changed = {}
         self.cancel = {}
+        self.title = title if title else self.uuid
 
     def dict(self):
         return {
+            'title': self.title,
             'uuid': self.uuid,
             'players': self.game.num_players,
             'in_progress': self.game.state != 'pregame',
@@ -99,7 +103,10 @@ def validate_player(game):
 @app.route('/create', methods=['POST'])
 @json_response
 def create_game():
-    new_game = GameManager()
+    payload = {}
+    if request.data:
+        payload = request.get_json(force=True)
+    new_game = GameManager(payload['title'] if 'title' in payload else None)
     return {'game': new_game.uuid, 'start': new_game.starter}
 
 @app.route('/join/<game>', methods=['POST'])
@@ -217,6 +224,14 @@ def poll_game(game):
     if game is None:
         return {'error': 'Invalid game / pid / uuid'}
     return game.poll(pid)
+
+@app.route('/')
+def index():
+    return static_proxy('index.html')
+
+@app.route('/client/<path:filename>')
+def static_proxy(filename):
+    return send_from_directory(client_dir, filename)
 
 if __name__ == '__main__':
     app.debug = True

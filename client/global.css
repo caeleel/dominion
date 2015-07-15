@@ -1,0 +1,45 @@
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: #EEE;
+}
+
+#content {
+  margin: 5em;
+}
+
+#games-list {
+  float: left;
+  width: 70%;
+}
+
+#games-list ul li span.game-title {
+  cursor: pointer;
+  font-weight: bold;
+  color: #750000;
+}
+
+#games-list ul li .game-playerCount{
+  font-weight: lighter;
+  color: #AAA;
+  font-size: .8em;
+}
+
+#create-game {
+  float: left;
+  width: 30%;
+}
+
+#create-game input[type=text] {
+    font-size: 1.2em;
+    padding: 0.25em;
+    margin: 0.25em 0;
+}
+
+#create-game input[type=submit] {
+  border-radius: 0.5em;
+  background: #750000;
+  border: none;
+  padding: 1em;
+  color: #fff;
+  margin-top: 1em;
+}
