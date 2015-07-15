@@ -1,14 +1,16 @@
-from flask import Flask, Response, request
+from flask import Flask, Response, request, send_from_directory
 from functools import wraps
 from player_and_game import *
 import uuid
 import time
 import json
+import os
 
 app = Flask(__name__)
 game_map = {}
 POLL_INTERVAL = 2
 shutting_down = False
+client_dir = os.path.join(os.path.dirname(os.getcwd()), 'client')
 
 def json_response(f):
     @wraps(f)
@@ -209,6 +211,14 @@ def poll_game(game):
     if game is None:
         return {'error': 'Invalid game / pid / uuid'}
     return game.poll(pid)
+
+@app.route('/')
+def index():
+    return static_proxy('index.html')
+
+@app.route('/client/<path:filename>')
+def static_proxy(filename):
+    return send_from_directory(client_dir, filename)
 
 if __name__ == '__main__':
     app.debug = True

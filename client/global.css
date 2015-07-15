@@ -1,0 +1,30 @@
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  background: #EEE;
+}
+
+#content {
+  margin: 5em;
+}
+
+#games-list {
+  float: left;
+  width: 70%;
+}
+
+#games-list ul li span.game-uuid {
+  cursor: pointer;
+  font-weight: bold;
+  color: #750000;
+}
+
+#games-list ul li .game-playerCount{
+  font-weight: lighter;
+  color: #AAA;
+  font-size: .8em;
+}
+
+#create-game {
+  float: left;
+  width: 30%;
+}
