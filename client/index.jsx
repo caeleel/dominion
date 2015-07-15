@@ -37,7 +37,11 @@
   var GameCreator = React.createClass({
     submit: function(evt) {
       evt.preventDefault();
-      $.post('/create', JSON.stringify(this.state), function(response) {
+      this.setState(this.getInitialState());
+      $.post('/create', JSON.stringify(this.state), function(game) {
+        $.post('/join/' + game.game, function(response) {
+          console.log(response);
+        });
       });
     },
 
