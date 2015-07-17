@@ -137,7 +137,7 @@ def set_state():
 
     resp = requests.get(server + '/poll/{0}?uuid={1}&pid={2}'.format(gid, uuid, pid))
     if resp.json().get('cancel'):
-        sys.exit(1)
+        return
     handle_resp(resp)
 
 def wait():
@@ -244,10 +244,12 @@ class Client(cmd.Cmd):
                 if len(args) > 2:
                     print '{0} requires exactly 1 argument'.format(cmd)
                     return None, None
+                count = 0
                 try:
                     count = int(args[1])
                 except ValueError:
                     print '{0} requires an integer argument'.format(cmd)
+                    return None, None
                 return cmd, {'count': count}
             elif cmd in ('Bishop', 'TradeRoute', 'Mint'):
                 if len(args) != 2:
@@ -428,6 +430,13 @@ class Client(cmd.Cmd):
     def do_list(self, line):
         """List active games"""
         list_games()
+
+    def do_resume(self, line):
+        """Go back into a game in case it crashes"""
+        global gid, uuid, pid
+
+        gid, uuid, pid = line.split(' ')
+        pid = int(pid)
 
 if __name__ == "__main__":
     readline.parse_and_bind("bind ^I rl_complete")

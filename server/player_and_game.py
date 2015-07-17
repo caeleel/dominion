@@ -31,7 +31,7 @@ class Player(object):
         self.deck.redraw()
 
     def add_contraband(self, card):
-        if not card_from_name(card.get('name')):
+        if not self.gmae.card_from_name(card.get('name')):
             return False
         self.contraband.add(card.get('name'))
         return True
