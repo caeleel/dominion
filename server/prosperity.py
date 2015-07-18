@@ -267,7 +267,7 @@ class Contraband(Treasure):
             return {'error': 'No such card {0}'.format(card.get('name'))}
         return {'clear': True}
 
-    def play(self, payload):
+    def preplay(self, payload):
         self.game.add_callback(
             'name_contraband',
             self.name_contraband,
@@ -366,7 +366,7 @@ class Rabble(Attack):
             "rest back on top in any order he chooses.",
         ]
 
-    def preplay(self):
+    def preplay(self, payload):
         self.deck.draw(3)
         return {}
 
