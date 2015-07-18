@@ -686,9 +686,9 @@ class KingsCourt(ThroneRoom):
 class Peddler(Action):
     def cost(self):
         cost = 8
-        if not self.deck:
+        if not self.game.active_deck:
             return cost
-        for card in self.deck.tmp_zone:
+        for card in self.game.active_deck.tmp_zone:
             if card.is_action():
                 cost -= 2
         return max(cost, 0)
