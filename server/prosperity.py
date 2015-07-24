@@ -16,9 +16,9 @@ class Loan(Treasure):
 
     def discard_or_trash(self, pid, payload):
         if payload.get('discard'):
-            self.deck.discard.append(self.revealed)
+            self.deck.discard += self.revealed
         else:
-            self.deck.discard.append(self.revealed[:-1])
+            self.deck.discard += self.revealed[:-1]
             self.game.trash.append(self.revealed[-1])
         return {'clear': True}
 
@@ -564,7 +564,7 @@ class Goons(Militia):
     def preplay(self, payload):
         self.game.add_buys(1)
         self.game.add_money(2)
-        self.game.on_buy(lambda x: True, self.effects)
+        self.game.on_buy(lambda x: True, self.effect)
         return {}
 
 class GrandMarket(Action):

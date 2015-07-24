@@ -111,9 +111,9 @@ class Treasure(Card):
         return True
 
     def play(self, payload):
-        self.preplay(payload)
+        result = self.preplay(payload)
         self.game.add_money(self.value())
-        return {}
+        return result
 
 class Victory(Card):
     def is_victory(self):
