@@ -272,13 +272,14 @@ class Client(cmd.Cmd):
             elif cmd == 'Forge':
                 if len(args) < 2:
                     print 'Forge requires at least 1 argument'
-                    payload = {
-                        'cards': [],
-                        'gain': {'name': args[1]},
-                    }
-                    for c in args[2:]:
-                        payload['cards'].append({'name': c})
-                    return cmd, payload
+                    return None, None
+                payload = {
+                    'cards': [],
+                    'gain': {'name': args[1]},
+                }
+                for c in args[2:]:
+                    payload['cards'].append({'name': c})
+                return cmd, payload
             else:
                 payload = {'cards': []}
                 for c in args[1:]:
@@ -350,7 +351,7 @@ class Client(cmd.Cmd):
         """Respond to callbacks"""
         args = line.split(' ')
         if not line:
-            callback({})
+            callback({'cards': []})
         else:
             payload = {'cards': []}
             for c in args:

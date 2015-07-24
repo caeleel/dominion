@@ -37,7 +37,7 @@ class Loan(Treasure):
             self.game.add_callback(
                 'discard_or_trash',
                 self.discard_or_trash,
-                [self.deck.player.id]
+                [self.deck.player]
             )
         return {'revealed': [x.dict() for x in self.revealed]}
 
@@ -352,6 +352,7 @@ class Mountebank(Attack):
         return {'clear': True}
 
     def attack(self, players):
+        self.game.add_money(2)
         self.game.add_callback("discard_curse", self.discard_curse, players)
 
 class Rabble(Attack):
@@ -376,11 +377,13 @@ class Rabble(Attack):
 
         cards = []
         revealed = self.revealed[pid]
+        if len(revealed) != len(payload['cards']):
+            return {'error': 'Must reorder all cards.'}
         for card in payload['cards']:
             if not isinstance(card, dict):
                 revealed += cards
                 return {'error': 'Invalid card.'}
-            matching = [x.name() for x in revealed]
+            matching = [x for x in revealed if x.name() == card.get('name')]
             if not matching:
                 revealed += cards
                 return {'error': 'Card not in revealed cards.'}
@@ -402,16 +405,18 @@ class Rabble(Attack):
                 cards.append(deck.library.pop())
 
             discarded = []
+            new_cards = []
             for card in cards:
                 if card.is_treasure() or card.is_action():
                     discarded.append(card)
-                    cards.remove(card)
+                else:
+                    new_cards.append(card)
             deck.discard += discarded
-            self.revealed[player.id] = cards
+            self.revealed[player.id] = new_cards
             self.game.log.append({
                 'pid': player.id,
                 'action': 'reveal_top_3',
-                'revealed': [x.dict() for x in cards],
+                'revealed': [x.dict() for x in new_cards],
                 'discarded': [x.dict() for x in discarded],
             })
         self.game.add_callback('choose_order', self.choose_order, players)
@@ -461,7 +466,7 @@ class Vault(Action):
             return {'error': 'Cards must be list.'}
         if not payload['cards']:
             return {'clear': True}
-        if len(payload['cards'] != 2):
+        if len(payload['cards']) != 2:
             return {'error': 'Must discard exactly 2 cards, or none.'}
 
         deck = self.game.players[pid].deck
@@ -481,24 +486,30 @@ class Vault(Action):
         deck.draw()
         return {'clear': True}
 
-    def play(self, payload):
+    def discard_cards(self, pid, payload):
         if not isinstance(payload.get('cards'), list):
             return {'error': 'Cards must be list.'}
 
+        deck = self.game.players[pid].deck
         cards = []
         for card in payload['cards']:
             if not isinstance(card, dict):
-                self.deck.hand += cards
+                deck.hand += cards
                 return {'error': 'Invalid card'}
-            c = self.deck.find_card_in_hand(card)
+            c = deck.find_card_in_hand(card)
             if c is None:
-                self.deck.hand += cards
+                deck.hand += cards
                 return {'error': 'Card {0} not in hand'.format(card.get('name'))}
             cards.append(c)
-            self.deck.hand.remove(c)
+            deck.hand.remove(c)
 
-        self.deck.discard += cards
+        deck.discard += cards
         self.game.add_money(len(cards))
+        return {'clear': True}
+
+    def play(self, payload):
+        self.deck.draw(2)
+        self.game.add_callback('discard_cards', self.discard_cards, [self.game.active_player])
         self.game.add_callback('cycle', self.cycle, self.game.opponents())
         return {}
 
@@ -547,7 +558,7 @@ class Goons(Militia):
             "While this is in play, when you buy a card, +1 VP token.",
         ]
 
-    def effect(self):
+    def effect(self, card):
         self.game.active_player.victory_tokens += 1
 
     def preplay(self, payload):
@@ -595,7 +606,7 @@ class Hoard(Treasure):
             "While this is in play, when you buy a Victory card, gain a Gold."
         ]
 
-    def effect(self):
+    def effect(self, card):
         self.game.gain(self.deck, 'Gold')
 
     def preplay(self, payload):

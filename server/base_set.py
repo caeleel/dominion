@@ -702,6 +702,8 @@ class Adventurer(Action):
             else:
                 discard.append(self.deck.library.pop())
             revealed.append(c.dict())
+            if num_treasures == 2:
+                break
 
         self.deck.discard += discard
         return {'revealed': revealed}
