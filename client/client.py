@@ -18,6 +18,7 @@ def create():
     resp = requests.post(server + '/create')
     gid = resp.json()['game']
     start_key = resp.json()['start']
+    handle_resp(resp, False)
     print 'created game {0} with start_key {1}'.format(gid, start_key)
 
 def join(game=None):
@@ -93,10 +94,16 @@ def print_state():
             keywords.append(c['card']['name'])
 
     for c in j['supply']:
-        print '{0}: [{1}] / ({2})'.format(c['card']['name'], c['card']['cost'], c['left'])
+        print '{0}: [{1}] / ({2}) :: {3} Embargoes'.format(c['card']['name'],
+            c['card']['cost'], c['left'], c['card']['embargoes'])
     print ''
+
+    if 'deck' not in j:
+        return
+
     print 'Hand: ' + ' '.join([x['name'] for x in j['deck']['hand']])
     log(-6)
+    print 'VP tokens: {0}'.format(j['vp_tokens'])
     print 'Actions: {0} / Buys: {1} / Money: {2} / Game state: {3}'.format(
         j['actions'], j['buys'], j['money'], j['state']
     )
@@ -153,7 +160,7 @@ def wait():
             break
 
 def poll():
-    if not curr_state:
+    if not curr_state or 'deck' not in curr_state:
         set_state()
     wait()
     while True:

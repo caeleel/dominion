@@ -93,12 +93,12 @@ def validate_player(game):
     except ValueError:
         return None, None
 
-    game = game_map[game]
-    if game.num_players() <= pid:
+    game_manager = game_map[game]
+    if game_manager.num_players() <= pid:
         return None, None
-    if game.game.players[pid].uuid != uuid:
+    if game_manager.game.players[pid].uuid != uuid:
         return None, None
-    return pid, game
+    return pid, game_manager
 
 @app.route('/create', methods=['POST'])
 @json_response
@@ -107,7 +107,7 @@ def create_game():
     if request.data:
         payload = request.get_json(force=True)
     new_game = GameManager(payload['title'] if 'title' in payload else None)
-    return {'game': new_game.uuid, 'start': new_game.starter}
+    return {'game': new_game.uuid, 'start': new_game.starter, 'state': new_game.game.dict()}
 
 @app.route('/join/<game>', methods=['POST'])
 @json_response

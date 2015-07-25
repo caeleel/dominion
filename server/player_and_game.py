@@ -410,11 +410,15 @@ class Game(object):
         if player_id >= self.num_players:
             return {}
 
+        supply = [{'card': x[0].dict(), 'left': x[1]} for x in self.cards.values()]
+        supply = sorted(supply, key=lambda x: x['card'].get('cost'))
+
+        if player_id < 0:
+            return {'supply': supply}
+
         callbacks = {}
         player = self.players[player_id]
         deck = player.deck.dict()
-        supply = [{'card': x[0].dict(), 'left': x[1]} for x in self.cards.values()]
-        supply = sorted(supply, key=lambda x: x['card'].get('cost'))
 
         for pid, callback in self.callbacks.iteritems():
             callbacks[pid] = callback[0]
@@ -424,16 +428,16 @@ class Game(object):
             {
                 'id': x.id,
                 'hand_size': len(x.deck.hand),
+                'vp_tokens': x.victory_tokens,
                 'discard': [y.dict() for y in x.deck.discard],
                 'in_play': [y.dict() for y in x.deck.tmp_zone],
                 'library_size': len(x.deck.library),
             } for x in self.opponents(player_id)
         ]
 
-        #print deck
-
         return {
             'deck': deck,
+            'vp_tokens': player.victory_tokens,
             'supply': supply,
             'trash': trash,
             'trade_route_tokens': len(self.victories_gained),

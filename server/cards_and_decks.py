@@ -5,7 +5,7 @@ import uuid
 class Card(object):
     def __init__(self, game):
         self.game = game
-        self.embargos = 0
+        self.embargoes = 0
         self.deck = None
         self.uuid = uuid.uuid4().hex
 
@@ -98,6 +98,7 @@ class Card(object):
             'value': self.value(),
             'cost': self.cost(),
             'points': self.points(),
+            'embargoes': self.embargoes,
             'text': self.text(),
             'uuid': self.uuid,
             'type': type,
