@@ -6,8 +6,9 @@ import uuid
 import time
 
 class Player(object):
-    def __init__(self, game, id):
+    def __init__(self, game, id, name=None):
         self.id = id
+        self.name = name
         self.uuid = uuid.uuid4().hex
         self.deck = Deck(self, game)
         self.game = game
@@ -187,8 +188,8 @@ class Game(object):
             result.append(self.players[x % self.num_players])
         return result
 
-    def add_player(self):
-        player = Player(self, self.num_players)
+    def add_player(self, name):
+        player = Player(self, self.num_players, name)
         self.players.append(player)
         self.num_players += 1
         if self.num_players == 3:
@@ -427,6 +428,7 @@ class Game(object):
         opponents = [
             {
                 'id': x.id,
+                'name': x.name,
                 'hand_size': len(x.deck.hand),
                 'vp_tokens': x.victory_tokens,
                 'discard': [y.dict() for y in x.deck.discard],

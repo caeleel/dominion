@@ -1,15 +1,236 @@
 body {
   font-family: Arial, Helvetica, sans-serif;
   background: #EEE;
+  padding: 0;
+  margin: 0;
 }
 
-#content {
-  margin: 5em;
+button {
+  border: 2px solid black;
+  background-color: white;
+  margin-right: 10px;
+  padding: 5px 10px 5px 10px;
+  cursor: pointer;
+  font-size: 15px;
+}
+
+.breaker {
+  clear: both;
+}
+
+.supply-item {
+  float: left;
+  margin: 5px;
+}
+
+.cards-left {
+  border-left: 1px solid black;
+  border-right: 1px solid black;
+  border-bottom: 1px solid black;
+  width: 20px;
+  margin-left: 38px;
+  text-align: center;
+  font-size: 10px;
+  padding: 1px;
+}
+
+.card {
+  font-size: 10px;
+  width: 100px;
+  height: 100px;
+  text-align: center;
+  border: 2px solid black;
+  background-color: white;
+}
+
+.card .vp {
+  font-size: 15px;
+  height: 30px;
+  font-weight: bold;
+  margin-top: 25px;
+  margin-bottom: 12px;
+}
+
+.card .header, .card .footer {
+  margin-top: 5px;
+  position: relative;
+  width: 100px;
+  height: 13px;
+  text-align: left;
+}
+
+.curse {
+  background-color: #d793ed;
+}
+
+.treasure {
+  background-color: #fff263;
+}
+
+.victory {
+  background-color: #7de389;
+}
+
+.reaction {
+  background-color: #7dd9e7;
+}
+
+#hand {
+  position: fixed;
+  width: 100%;
+  bottom: 0px;
+  height: 120px;
+  padding-top: 10px;
+  border-top: 1px solid black;
+}
+
+#expand-info {
+  width: 23%;
+  left: 75%;
+  top: 0;
+  padding-top: 10px;
+  position: absolute;
+}
+
+#expand-info .name {
+  font-weight: bold;
+  font-size: 20px;
+  border-bottom: 2px solid black;
+  padding-bottom: 2px;
+  margin-bottom: 10px;
+}
+
+#expand-info .value, #expand-info .cost, #expand-info .vp {
+  position: absolute;
+  background-color: #fefefe;
+  border: 2px solid black;
+  height: 16px;
+  padding: 2px;
+  width: 45px;
+  text-align: center;
+}
+
+#expand-info .divider {
+  border-bottom: 1px solid #dedede;
+  margin: 20px;
+}
+
+#expand-info .cost {
+  top: 24px;
+}
+
+#expand-info .vp {
+  top: 13px;
+}
+
+#expand-info .value {
+  top: 35px;
+}
+
+#expand-info .value, #expand-info .vp {
+  right: 0px;
+}
+
+#expand-info .type {
+  top: 45px;
+}
+
+#expand-info .line {
+  margin-bottom: 8px;
+  font-size: 13px;
+  text-align: center;
+}
+
+#expand-info .type, #expand-info .name {
+  position: absolute;
+  left: 0px;
+  width: 100%;
+  text-align: center;
+}
+
+#expand-info .text {
+  position: absolute;
+  top: 100px;
+  width: 70%;
+  left: 15%;
+}
+
+.card .name {
+  font-weight: bold;
+}
+
+.card .cost {
+  border-top: 1px solid black;
+  border-right: 1px solid black;
+  font-weight: bold;
+}
+
+.card .value, .card .cost {
+  width: 12px;
+  height: 14px;
+  padding: 1px;
+  text-align: center;
+}
+
+.card .value {
+  position: absolute;
+  left: 5px;
+  top: 1px;
+}
+
+.card .name{
+  position: absolute;
+  top: 2px;
+  left: 10px;
+  width: 80px;
+  text-align: right;
+}
+
+.card .type {
+  display: none;
+}
+
+.card .text {
+  display: none;
+}
+
+#card-area {
+  width: 75%;
+}
+
+#container {
+  position: relative;
+}
+
+#supply, #hand {
+  padding-left: 10px;
+}
+
+#game-title {
+  margin-top: 10px;
+  margin-bottom: 15px;
+  border-bottom: 1px solid black;
+  width: 100%;
+  font-weight: bold;
+  font-size: 24px;
+  height: 37px;
+}
+
+#game-title-span {
+  padding-left: 15px;
+}
+
+#leave-game, #start-game {
+  float: right;
 }
 
 #games-list {
   float: left;
   width: 70%;
+}
+
+#game-manager {
+  margin: 40px;
 }
 
 #games-list ul li span.game-title {
@@ -42,4 +263,8 @@ body {
   padding: 1em;
   color: #fff;
   margin-top: 1em;
+}
+
+.game-title {
+  padding-right: 5px;
 }

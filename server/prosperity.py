@@ -41,7 +41,7 @@ class Loan(Treasure):
             )
         return {'revealed': [x.dict() for x in self.revealed]}
 
-class TradeRoute(Reaction):
+class TradeRoute(Action):
     def cost(self):
         return 3
 

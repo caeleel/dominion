@@ -72,7 +72,7 @@ class Card(object):
         return 0
 
     def text(self):
-        return ""
+        return []
 
     def dict(self):
         type = None

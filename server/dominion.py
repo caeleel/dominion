@@ -28,7 +28,6 @@ class GameManager(object):
         game_map[self.uuid] = self
         self.game = Game()
         self.changed = {}
-        self.cancel = {}
         self.title = title if title else self.uuid
 
     def dict(self):
@@ -39,19 +38,13 @@ class GameManager(object):
             'in_progress': self.game.state != 'pregame',
         }
 
-    def cancel_poll(self):
-        for pid in self.changed:
-            self.cancel[pid] = True
-
     def poll(self, pid):
         while not self.changed[pid]:
             time.sleep(POLL_INTERVAL)
-            if self.cancel.get(pid):
-                self.cancel[pid] = False
-                return {'cancel': True}
+            yield " "
 
         self.changed[pid] = False
-        return {'state': self.game.dict(pid), 'result': {}}
+        yield json.dumps({'state': self.game.dict(pid), 'result': {}})
 
     def num_players(self):
         return self.game.num_players
@@ -60,13 +53,13 @@ class GameManager(object):
         for p in self.changed:
             self.changed[p] = True
 
-    def join_game(self):
+    def join_game(self, player_name):
         if self.game.num_players >= 4:
             return {'error': 'Already at max players'}
         if self.game.state != 'pregame':
             return {'error': 'Game already in progress'}
 
-        pid, uuid = self.game.add_player()
+        pid, uuid = self.game.add_player(player_name)
         self.changed[pid] = False
         self.has_changed()
 
@@ -106,16 +99,19 @@ def create_game():
     payload = {}
     if request.data:
         payload = request.get_json(force=True)
-    new_game = GameManager(payload['title'] if 'title' in payload else None)
+    new_game = GameManager(payload.get('title'))
     return {'game': new_game.uuid, 'start': new_game.starter, 'state': new_game.game.dict()}
 
 @app.route('/join/<game>', methods=['POST'])
 @json_response
 def join_game(game):
     global game_map
+    payload = {}
+    if request.data:
+        payload = request.get_json(force=True)
     if game not in game_map:
         return {'error': 'No such game'}
-    return game_map[game].join_game()
+    return game_map[game].join_game(payload.get('name'))
 
 @app.route('/start/<game>/<starter>', methods=['POST'])
 @json_response
@@ -142,15 +138,6 @@ def callback(game):
     if 'error' not in result:
         game_manager.has_changed()
     return {'state': game.dict(pid), 'result': result}
-
-@app.route('/game/<game>/cancel', methods=['POST'])
-@json_response
-def cancel_poll(game):
-    pid, game_manager = validate_player(game)
-    if game_manager is None:
-        return {'error': 'Invalid game / pid / uuid'}
-    game_manager.cancel_poll()
-    return {}
 
 @app.route('/game/<game>/play/<card>', methods=['POST'])
 @json_response
@@ -218,12 +205,11 @@ def stat_game(game):
     return {'state': game_manager.game.dict(pid)}
 
 @app.route('/poll/<game>', methods=['GET'])
-@json_response
 def poll_game(game):
     pid, game = validate_player(game)
     if game is None:
         return {'error': 'Invalid game / pid / uuid'}
-    return game.poll(pid)
+    return Response(game.poll(pid), content_type='application/json')
 
 @app.route('/')
 def index():
