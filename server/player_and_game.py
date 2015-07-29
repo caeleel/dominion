@@ -337,6 +337,8 @@ class Game(object):
     def buy(self, card):
         if not isinstance(card, dict):
             return {'error': 'Invalid card specified'}
+        if self.state != 'buy':
+            return {'error': 'Not in buy phase'}
         return self.active_player.buy(card)
 
     def play(self, card, payload):

@@ -7,11 +7,54 @@ body {
 
 button {
   border: 2px solid black;
+  border-radius: 3px;
   background-color: white;
   margin-right: 10px;
   padding: 5px 10px 5px 10px;
   cursor: pointer;
   font-size: 15px;
+}
+
+#n-a-action, #n-b-buy {
+  background-color: black;
+  color: white;
+}
+
+#status-window {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  border-right: 2px solid black;
+  height: 130px;
+  width: 42px;
+  text-align: center;
+  letter-spacing: 1px;
+  overflow: hidden;
+  background-color: white;
+}
+
+.status-box {
+  font-size: 13px;
+  height: 22px;
+  width: 26px;
+  border-bottom: 2px solid black;
+  padding: 7px 8px 2px 8px;
+}
+
+#next-phase {
+  padding-top: 3px;
+  padding-bottom: 8px;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+#next-phase:hover {
+  background-color: black;
+  color: white;
+}
+
+.status-label {
+  font-weight: bold;
 }
 
 .breaker {
@@ -24,14 +67,22 @@ button {
 }
 
 .cards-left {
-  border-left: 1px solid black;
-  border-right: 1px solid black;
-  border-bottom: 1px solid black;
+  background-color: black;
+  color: white;
   width: 20px;
   margin-left: 38px;
   text-align: center;
   font-size: 10px;
-  padding: 1px;
+  padding: 1px 3px 3px 3px;
+  font-weight: bold;
+}
+
+#supply {
+  margin-left: 50px;
+}
+
+#hand .card, #supply .card {
+  cursor: pointer;
 }
 
 .card {
@@ -75,13 +126,100 @@ button {
   background-color: #7dd9e7;
 }
 
-#hand {
+#discard-popup {
+  right: -97%;
+  -webkit-transition: right 0.25s;
+  transition: right 0.25s;
+}
+
+#discard-popup:hover {
+  right: -5%;
+}
+
+#discard-popup, #inplay-popup {
   position: fixed;
+  bottom: 135px;
   width: 100%;
+  height: 132px;
+  border: 2px solid black;
+  border-radius: 3px;
+  background-color: white;
+}
+
+.popup-bar {
+  width: 20px;
+  padding: 53px 6px 54px 4px;
+}
+
+#discard-bar {
+  border-right: 1px solid #efefef;
+}
+
+#inplay-bar {
+  position: absolute;
+  right: 0;
+  border-left: 1px solid #efefef;
+}
+
+#inplay-popup {
+  left: -97%;
+  -webkit-transition: left 0.25s;
+  transition: left 0.25s;
+}
+
+#inplay-popup:hover {
+  left: -5%;
+}
+
+#inplay-popup:hover {
+  left: -5%
+}
+
+#discard, #inplay {
+  position: absolute;
+  top: 10px;
+  height: 90%;
+  width: 92%;
+  overflow: scroll;
+}
+
+#discard {
+  left: 35px;
+}
+
+#inplay {
+  right: 35px;
+}
+
+#discard .cards-inner {
+  left: 0;
+}
+
+#inplay .cards-inner {
+  right: 0;
+}
+
+#hand-wrapper {
+  background-color: white;
+  position: fixed;
   bottom: 0px;
+  height: 130px;
+  width: 100%;
+  border-top: 2px solid black;
+  overflow: scroll;
+}
+
+#hand {
+  position: absolute;
+  top: 8px;
+  left: 52px;
+}
+
+.cards-inner {
+  position: relative;
+  top: 0;
   height: 120px;
-  padding-top: 10px;
-  border-top: 1px solid black;
+  width: 400%;
 }
 
 #expand-info {
@@ -202,14 +340,10 @@ button {
   position: relative;
 }
 
-#supply, #hand {
-  padding-left: 10px;
-}
-
 #game-title {
   margin-top: 10px;
   margin-bottom: 15px;
-  border-bottom: 1px solid black;
+  border-bottom: 2px solid black;
   width: 100%;
   font-weight: bold;
   font-size: 24px;

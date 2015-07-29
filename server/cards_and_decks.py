@@ -246,10 +246,12 @@ class Deck(object):
     def dict(self):
         hand = sorted([x.dict() for x in self.hand], key=lambda x: x.get('cost'))
         discard = [x.dict() for x in self.discard]
+        in_play = [x.dict() for x in self.tmp_zone]
         native_village = [x.dict() for x in self.native_village]
         return {
             'hand': hand,
             'discard': discard,
+            'in_play': in_play,
             'native_village': native_village,
             'library_size': len(self.library),
         }

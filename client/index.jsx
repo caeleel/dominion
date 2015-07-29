@@ -22,8 +22,15 @@
             {this.state.games.map(function(g) {
               return (
                 <li key={g.uuid}>
-                  <span onClick={self.handleClick.bind(self, g.uuid)} className="game-title">{g.title}</span>
-                  <span className="game-playerCount">({g.players} players)</span>
+                  <span
+                    onClick   = {self.handleClick.bind(self, g.uuid)}
+                    className = "game-title"
+                  >
+                    {g.title}
+                  </span>
+                  <span className="game-playerCount">
+                    ({g.players} players)
+                  </span>
                 </li>
               );
             })}
@@ -37,6 +44,10 @@
     onHover: function() {
       var uuid = this.props.card.uuid;
       $("#expand-info").html($("#" + uuid).html());
+    },
+
+    doCard: function() {
+      this.props.callback(this.props.type, this.props.card);
     },
 
     render: function() {
@@ -63,7 +74,12 @@
 
       return (
         <div className="supply-item">
-          <div id={card.uuid} className={type} onMouseOver={this.onHover}>
+          <div
+            onClick     = {this.doCard}
+            id          = {card.uuid}
+            className   = {type}
+            onMouseOver = {this.onHover}
+          >
             <div className="header">
               <div className="value">
                 {card.value > 0 && '$' + card.value}
@@ -113,9 +129,16 @@
 
   var Supply = React.createClass({
     render: function() {
+      var self = this;
       var cards = this.props.supply.map(function(card_set) {
         return (
-          <Card key={card_set.card.uuid} card={card_set.card} remaining={card_set.left} />
+          <Card
+            key       = {card_set.card.uuid}
+            callback  = {self.props.callback}
+            type      = "supply"
+            card      = {card_set.card}
+            remaining = {card_set.left}
+          />
         );
       });
       return (
@@ -126,19 +149,27 @@
     }
   });
 
-  var Hand = React.createClass({
+  var CardList = React.createClass({
     render: function() {
       var cards = [];
-      if (this.props.hand) {
-        cards = this.props.hand.map(function(card) {
+      var self = this;
+      if (this.props.cards) {
+        cards = this.props.cards.map(function(card) {
           return (
-              <Card key={card.uuid} card={card} />
+              <Card
+                key      = {card.uuid}
+                callback = {self.props.callback}
+                type     = {self.props.name}
+                card     = {card}
+              />
           )
         });
       }
       return (
-        <div id="hand">
-          {cards}
+        <div id={this.props.name}>
+          <div className="cards-inner">
+            {cards}
+          </div>
         </div>
       );
     }
@@ -148,27 +179,86 @@
     getInitialState: function() {
       return {
         supply: [],
+        hand: [],
+        discard: [],
+        in_play: [],
+        actions: 1,
+        buys: 1,
+        money: 0,
+        turn: -1,
+        phase: "pregame",
+        target: "normal",
       };
+    },
+
+    doCard: function(type, card) {
+      var self = this;
+      var pid = this.props.pid;
+      var uuid = this.props.uuid;
+
+      if (this.state.target == "normal") {
+        if (type != "hand" && type != "supply") return;
+        var action = (type == "hand" ? "/play/" : "/buy/");
+
+        $.post(
+          '/game/' + this.props.gid + action + card.name + this.loginArgs(),
+          '{}',
+          function(resp) {
+            self.updateState(resp);
+          }
+        );
+      }
+    },
+
+    updateState: function(r) {
+      if (r.state) {
+        this.setState({
+          supply: r.state.supply,
+          hand: r.state.deck.hand,
+          discard: r.state.deck.discard,
+          in_play: r.state.deck.in_play,
+          actions: r.state.actions,
+          buys: r.state.buys,
+          money: r.state.money,
+          turn: r.state.turn,
+          phase: r.state.state,
+        });
+      }
+    },
+
+    loginArgs: function() {
+      return '?pid=' + this.props.pid + '&uuid=' + this.props.uuid;
+    },
+
+    nextPhase: function() {
+      var self = this;
+      this.request = $.post(
+        '/game/' + this.props.gid + '/next_phase' + this.loginArgs(),
+        function(resp) {
+          self.updateState(resp);
+        }
+      );
     },
 
     poll: function() {
       var self = this;
-      this.request = $.get('/poll/' + this.props.gid + '?pid=' + this.props.pid + '&uuid=' + this.props.uuid, function(r) {
-        self.setState({
-          supply: r.state.supply,
-        });
-        self.poll();
-      });
+      this.request = $.get(
+        '/poll/' + this.props.gid + this.loginArgs(),
+        function(resp) {
+          self.updateState(resp);
+          self.poll();
+        }
+      );
     },
 
     stat: function() {
       var self = this;
-      $.get('/stat/' + this.props.gid + '?pid=' + this.props.pid + '&uuid=' + this.props.uuid, function(r) {
-        self.setState({
-          supply: r.state.supply,
-          hand: r.state.deck.hand,
-        });
-      });
+      $.get(
+        '/stat/' + this.props.gid + this.loginArgs(),
+        function(resp) {
+          self.updateState(resp);
+        }
+      );
     },
 
     componentDidMount: function() {
@@ -184,11 +274,37 @@
       return (
         <div id="container">
           <div id="card-area">
-            <Supply supply={this.state.supply} />
+            <Supply supply={this.state.supply} callback={this.doCard}/>
             <div className="breaker"></div>
           </div>
           <div id="expand-info"></div>
-          <Hand hand={this.state.hand} />
+          <div id="inplay-popup">
+            <div className="popup-bar" id="inplay-bar">
+              <img src="client/img/inplay.png" />
+            </div>
+            <CardList cards={this.state.in_play} callback={this.doCard} name="inplay" />
+          </div>
+          <div id="discard-popup">
+            <div className="popup-bar" id="discard-bar">
+              <img src="client/img/trash.png" />
+            </div>
+            <CardList cards={this.state.discard} callback={this.doCard} name="discard" />
+          </div>
+          <div id="hand-wrapper">
+            <CardList cards={this.state.hand} callback={this.doCard} name="hand" />
+          </div>
+          <div id="status-window">
+            <div id={"n-a-" + this.state.phase} className="status-box">
+              <span className="status-label">A</span> {this.state.actions}
+            </div>
+            <div id={"n-b-" + this.state.phase} className="status-box">
+              <span className="status-label">B</span> {this.state.buys}
+            </div>
+            <div id="n-m" className="status-box">
+              <span className="status-label">$</span> {this.state.money}
+            </div>
+            <div id="next-phase" className="status-box" onClick={this.nextPhase}>&#x25b8;</div>
+          </div>
           <div className="breaker"></div>
         </div>
       );
@@ -249,7 +365,11 @@
     },
 
     startGame: function() {
-      console.log(this.state.start_key);
+      var self = this;
+      $.post('/start/' + this.state.gid + '/' + this.state.start_key, function(resp) {
+        self.setState({start_key: null});
+        self.save();
+      });
     },
 
     render: function() {
@@ -274,8 +394,16 @@
             <div id="create-game">
               <h2>New Game</h2>
               <form onSubmit={this.submit}>
-                <div><input type="text" name="title" value={this.state.title} onChange={this.handleChange} /></div>
-                <div><input type="submit" value="Let's play!" /></div>
+                <div>
+                  <input
+                    type     = "text"
+                    name     = "title"
+                    value    = {this.state.title}
+                    onChange = {this.handleChange} />
+                </div>
+                <div>
+                  <input type="submit" value="Let's play!" />
+                </div>
               </form>
             </div>
           </div>
