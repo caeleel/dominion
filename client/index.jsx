@@ -1,5 +1,35 @@
 (function() {
   $.ajaxSetup({contentType: 'application/json'});
+  var errorTimeout;
+
+  function showError(resp) {
+    var msg;
+    if (!resp) {
+      msg = "Request failed";
+      return true;
+    }
+    else if (!resp.result || !resp.result.error) return false;
+    else msg = resp.result.error;
+
+    $('#error-box-inner').text(msg);
+
+    clearTimeout(errorTimeout);
+    $('#error-box').show();
+    errorTimeout = setTimeout(function() {
+      $('#error-box').hide();
+    }, 4000);
+    return true;
+  }
+
+  function makeId() {
+    var text = "";
+    var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+    for( var i=0; i < 20; i++ )
+      text += possible.charAt(Math.floor(Math.random() * possible.length));
+
+    return text;
+  }
 
   var AvailableGames = React.createClass({
     getInitialState: function() { return {games: []} },
@@ -41,13 +71,24 @@
   });
 
   var Card = React.createClass({
+    getInitialState: function() {
+      return {
+        used: false,
+      }
+    },
+
     onHover: function() {
       var uuid = this.props.card.uuid;
       $("#expand-info").html($("#" + uuid).html());
     },
 
     doCard: function() {
-      this.props.callback(this.props.type, this.props.card);
+      if (this.state.used) return;
+      if (this.props.callback(this.props.type, this.props.card)) {
+        this.setState({
+          used: true,
+        })
+      }
     },
 
     render: function() {
@@ -71,6 +112,7 @@
           type = card.type.toLowerCase();
       }
       type = "card " + type;
+      var usage = (this.state.used ? "used" : "unused")
 
       return (
         <div className="supply-item">
@@ -79,6 +121,7 @@
             id          = {card.uuid}
             className   = {type}
             onMouseOver = {this.onHover}
+            data-used   = {usage}
           >
             <div className="header">
               <div className="value">
@@ -130,14 +173,14 @@
   var Supply = React.createClass({
     render: function() {
       var self = this;
-      var cards = this.props.supply.map(function(card_set) {
+      var cards = this.props.supply.map(function(cardSet) {
         return (
           <Card
-            key       = {card_set.card.uuid}
+            key       = {cardSet.card.uuid}
             callback  = {self.props.callback}
             type      = "supply"
-            card      = {card_set.card}
-            remaining = {card_set.left}
+            card      = {cardSet.card}
+            remaining = {cardSet.left}
           />
         );
       });
@@ -181,33 +224,131 @@
         supply: [],
         hand: [],
         discard: [],
-        in_play: [],
+        inPlay: [],
         actions: 1,
         buys: 1,
         money: 0,
         turn: -1,
         phase: "pregame",
-        target: "normal",
+        mode: "normal",
+        refresher: makeId(),
       };
+    },
+
+    cancelTarget: function() {
+      this.setState({
+        mode: "normal",
+        targets: null,
+        activeCard: null,
+        picked: [],
+        refresher: makeId(),
+      });
+    },
+
+    finishTarget: function() {
+      if (this.state.activeCard == "Forge") {
+        this.setState({
+          targets: 1,
+        });
+      } else {
+        this.doCard("finish", this.state.activeCard);
+      }
     },
 
     doCard: function(type, card) {
       var self = this;
+      var action = "/play/";
       var pid = this.props.pid;
       var uuid = this.props.uuid;
+      var payload = {};
 
-      if (this.state.target == "normal") {
-        if (type != "hand" && type != "supply") return;
-        var action = (type == "hand" ? "/play/" : "/buy/");
-
-        $.post(
-          '/game/' + this.props.gid + action + card.name + this.loginArgs(),
-          '{}',
-          function(resp) {
-            self.updateState(resp);
+      if (this.state.mode == "target") {
+        var numTargets = this.state.targets;
+        var cards = this.state.picked;
+        if (type != "finish") {
+          cards.push(card);
+          numTargets--;
+        }
+        if (numTargets == 0 || type == "finish") {
+          switch (this.state.activeCard.name) {
+            case "Bishop":
+            case "TradeRoute":
+            case "Mint":
+              payload = {card: card};
+              break;
+            case "Remodel":
+            case "Mine":
+            case "Expand":
+              payload = {trash: cards[0], gain: cards[1]};
+              break;
+            case "Workshop":
+            case "Feast":
+              payload = {gain: card};
+              break;
+            case "Cellar":
+            case "Chapel":
+              payload = {cards: cards};
+              console.log(payload);
+              break;
+            case "Forge":
+              payload = {cards: cards.slice(0, -1), gain: cards[-1]};
+              break;
+            case "CountingHouse":
+              pyaload = {count: cards.length};
+              break;
           }
-        );
+          this.cancelTarget();
+        } else {
+          this.setState({
+            targets: numTargets,
+            picked: cards,
+          });
+          return true;
+        }
+      } else if (this.state.mode == "normal") {
+        if (type != "hand" && type != "supply") {
+          return false;
+        }
+        if (type == "supply") action = "/buy/";
+
+        if (type == "hand") {
+          var numTargets = 0;
+          switch (card.name) {
+            case "Bishop":
+            case "TradeRoute":
+            case "Mint":
+            case "Workshop":
+            case "Feast":
+              numTargets: 1;
+            case "Remodel":
+            case "Mine":
+            case "Expand":
+              if (numTargets == 0) numTargets = 2;
+            case "Cellar":
+            case "Chapel":
+            case "Forge":
+            case "CountingHouse":
+              if (numTargets == 0) numTargets = -1;
+              this.setState({
+                mode: "target",
+                targets: numTargets,
+                activeCard: card,
+                picked: [],
+              });
+              return true;
+          }
+        }
       }
+
+      $.post(
+        '/game/' + this.props.gid + action + card.name + this.loginArgs(),
+        JSON.stringify(payload),
+        function(resp) {
+          if (!showError(resp)) self.updateState(resp);
+        }
+      );
+
+      return true;
     },
 
     updateState: function(r) {
@@ -216,12 +357,13 @@
           supply: r.state.supply,
           hand: r.state.deck.hand,
           discard: r.state.deck.discard,
-          in_play: r.state.deck.in_play,
+          inPlay: r.state.deck.in_play,
           actions: r.state.actions,
           buys: r.state.buys,
           money: r.state.money,
           turn: r.state.turn,
           phase: r.state.state,
+          refresher: makeId(),
         });
       }
     },
@@ -235,7 +377,7 @@
       this.request = $.post(
         '/game/' + this.props.gid + '/next_phase' + this.loginArgs(),
         function(resp) {
-          self.updateState(resp);
+          if (!showError(resp)) self.updateState(resp);
         }
       );
     },
@@ -245,8 +387,10 @@
       this.request = $.get(
         '/poll/' + this.props.gid + this.loginArgs(),
         function(resp) {
-          self.updateState(resp);
-          self.poll();
+          if (!showError(resp)) {
+            self.updateState(resp);
+            self.poll();
+          }
         }
       );
     },
@@ -256,7 +400,7 @@
       $.get(
         '/stat/' + this.props.gid + this.loginArgs(),
         function(resp) {
-          self.updateState(resp);
+          if (!showError(resp)) self.updateState(resp);
         }
       );
     },
@@ -271,8 +415,47 @@
     },
 
     render: function() {
+      var mode = this.state.mode;
+      var msg = "";
+      var targets = 0;
+      if (mode == "target") {
+        targets = this.state.targets;
+        switch (this.state.activeCard.name) {
+          case "CountingHouse":
+            msg = "Choose coppers from discard to retrieve";
+            break;
+          case "Bishop":
+          case "TradeRoute":
+            msg = "Choose card from hand to trash";
+            break;
+          case "Mint":
+            msg = "Choose treasure from hand to copy";
+            break;
+          case "Remodel":
+          case "Mine":
+          case "Expand":
+            if (targets == 2) msg = "Choose card in hand to trash";
+            else msg = "Choose card from supply to gain";
+            break;
+          case "Workshop":
+          case "Feast":
+            msg = "Choose card from supply to gain";
+            break;
+          case "Forge":
+            if (targets == 1) msg = "Choose card from supply to gain";
+            else msg = "Choose card in hand to trash";
+            break;
+          case "Cellar":
+            msg = "Choose card in hand to discard";
+            break;
+          case "Chapel":
+            msg = "Choose card in hand to trash";
+            break;
+        }
+      }
+
       return (
-        <div id="container">
+        <div id="container" key={this.state.refresher}>
           <div id="card-area">
             <Supply supply={this.state.supply} callback={this.doCard}/>
             <div className="breaker"></div>
@@ -282,7 +465,7 @@
             <div className="popup-bar" id="inplay-bar">
               <img src="client/img/inplay.png" />
             </div>
-            <CardList cards={this.state.in_play} callback={this.doCard} name="inplay" />
+            <CardList cards={this.state.inPlay} callback={this.doCard} name="inplay" />
           </div>
           <div id="discard-popup">
             <div className="popup-bar" id="discard-bar">
@@ -303,9 +486,27 @@
             <div id="n-m" className="status-box">
               <span className="status-label">$</span> {this.state.money}
             </div>
-            <div id="next-phase" className="status-box" onClick={this.nextPhase}>&#x25b8;</div>
+            <div id="next-phase" className="status-box" onClick={this.nextPhase}>
+              &#x25b8;
+            </div>
           </div>
           <div className="breaker"></div>
+          <div id="error-box"><div id="error-box-inner"></div></div>
+          { mode == "target" &&
+            <div id="info-box">
+              <div id="info-box-inner">
+                {msg}
+                {targets < 0 &&
+                  <button className="info-button" onClick={this.finishTarget}>
+                    Finish
+                  </button>
+                }
+                <button className="info-button" onClick={this.cancelTarget}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          }
         </div>
       );
     }
@@ -313,24 +514,26 @@
 
   var GameCreator = React.createClass({
     join: function(game) {
-      game_creator = this;
-      $.post('/join/' + game, function(response) {
-        game_creator.setState({
-          joined: true,
-          pid: response.id,
-          uuid: response.uuid,
-          gid: game,
-        });
-        game_creator.save();
+      var self = this;
+      $.post('/join/' + game, function(resp) {
+        if (!showError(resp)) {
+          self.setState({
+            joined: true,
+            pid: resp.id,
+            uuid: resp.uuid,
+            gid: game,
+          });
+          self.save();
+        }
       });
     },
 
     submit: function(evt) {
       evt.preventDefault();
-      var game_creator = this;
+      var self = this;
       $.post('/create', JSON.stringify(this.state), function(game) {
-        game_creator.join(game.game);
-        game_creator.setState({start_key: game.start});
+        self.join(game.game);
+        self.setState({startKey: game.start});
       });
     },
 
@@ -366,9 +569,11 @@
 
     startGame: function() {
       var self = this;
-      $.post('/start/' + this.state.gid + '/' + this.state.start_key, function(resp) {
-        self.setState({start_key: null});
-        self.save();
+      $.post('/start/' + this.state.gid + '/' + this.state.startKey, function(resp) {
+        if (!showError(resp)) {
+          self.setState({startKey: null});
+          self.save();
+        }
       });
     },
 
@@ -379,7 +584,7 @@
             <div id="game-title">
               <span id="game-title-span">{this.state.title}</span>
               <button id="leave-game" onClick={this.leaveGame}>Leave</button>
-              { this.state.start_key &&
+              { this.state.startKey &&
                 <button id="start-game" onClick={this.startGame}>Start</button>
               }
             </div>
@@ -406,6 +611,7 @@
                 </div>
               </form>
             </div>
+            <div id="error-box"><div id="error-box-inner"></div></div>
           </div>
         );
       }

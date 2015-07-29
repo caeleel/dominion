@@ -15,6 +15,14 @@ button {
   font-size: 15px;
 }
 
+.info-button {
+  margin-left: 10px;
+  margin-right: 0;
+  border: 1px solid black;
+  font-size: 12px;
+  padding: 1px 4px 1px 4px;
+}
+
 #n-a-action, #n-b-buy {
   background-color: black;
   color: white;
@@ -94,6 +102,11 @@ button {
   background-color: white;
 }
 
+.card[data-used='used'] {
+  background-color: #dedede;
+  color: #555555;
+}
+
 .card .vp {
   font-size: 15px;
   height: 30px;
@@ -124,6 +137,38 @@ button {
 
 .reaction {
   background-color: #7dd9e7;
+}
+
+#error-box {
+  display: none;
+}
+
+#info-box, #error-box {
+  left: 30%;
+  width: 40%;
+  position: fixed;
+  bottom: 0;
+  border-top: 2px solid black;
+  border-left: 2px solid black;
+  border-right: 2px solid black;
+  height: 30px;
+  background-color: white;
+}
+
+#error-box-inner {
+  background-color: #E61919;
+}
+
+#error-box-inner, #info-box-inner {
+  margin-left: 10px;
+  margin-right: 10px;
+  border-left: 2px solid black;
+  border-right: 2px solid black;
+  padding: 8px;
+  height: 14px;
+  text-align: center;
+  font-weight: bold;
+  font-size: 12px;
 }
 
 #discard-popup {
